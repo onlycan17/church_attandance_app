@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo $PATH)",
+      "Bash(echo $SHELL)",
+      "Read(/Users/ojinseog/**)",
+      "Bash(source:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(git reset:*)",
+      "Bash(flutter:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "/users/ojinseog/flutter_sdk/flutter_m1/flutter/bin",
+      "/Users/ojinseog/flutter_sdk/flutter_m1/flutter/bin",
+      "/users/ojinseog/flutter_sdk/flutter_m1/flutter"
+    ]
+  }
+}
