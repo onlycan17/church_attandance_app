@@ -228,31 +228,84 @@ class GPSService {
 
   Future<Position> getCurrentLocation() async {
     try {
+      debugPrint('GPS: 현재 위치 요청 시작');
+
+      // 위치 서비스 활성화 확인
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('GPS: 위치 서비스 활성화 상태: $serviceEnabled');
+
       if (!serviceEnabled) {
-        throw Exception('위치 서비스가 활성화되지 않았습니다.');
+        throw Exception('위치 서비스가 활성화되지 않았습니다. 설정에서 위치 서비스를 켜주세요.');
       }
 
+      // 위치 권한 확인 및 요청
       LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('GPS: 현재 권한 상태: $permission');
+
       if (permission == LocationPermission.denied) {
+        debugPrint('GPS: 위치 권한 요청 중...');
         permission = await Geolocator.requestPermission();
+        debugPrint('GPS: 권한 요청 결과: $permission');
+
         if (permission == LocationPermission.denied) {
-          throw Exception('위치 권한이 거부되었습니다.');
+          throw Exception('위치 권한이 거부되었습니다. 앱 설정에서 위치 권한을 허용해주세요.');
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('위치 권한이 영구 거부되었습니다.');
+        throw Exception('위치 권한이 영구 거부되었습니다. 앱 설정에서 위치 권한을 허용해주세요.');
       }
 
+      debugPrint('GPS: 위치 정보 요청 중...');
+
+      // 위치 정보 가져오기 (타임아웃 설정)
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium, // 배터리 절약을 위해 중간 정확도로 변경
+        desiredAccuracy: LocationAccuracy.high, // 정확도 높임
+        timeLimit: const Duration(seconds: 30), // 30초 타임아웃
+      );
+
+      debugPrint(
+        'GPS: 위치 정보 획득 성공 - 위도: ${position.latitude}, 경도: ${position.longitude}, 정확도: ${position.accuracy}m',
       );
 
       return position;
     } catch (e) {
-      debugPrint('현재 위치 가져오기 오류: $e');
-      rethrow;
+      debugPrint('GPS: 현재 위치 가져오기 오류: $e');
+
+      // 더 자세한 오류 메시지 제공
+      if (e.toString().contains('timeout')) {
+        throw Exception('위치 정보를 가져오는 데 시간이 너무 오래 걸렸습니다. 다시 시도해주세요.');
+      } else if (e.toString().contains('permission')) {
+        throw Exception('위치 권한이 필요합니다. 앱 설정에서 위치 권한을 허용해주세요.');
+      } else if (e.toString().contains('service')) {
+        throw Exception('위치 서비스가 비활성화되어 있습니다. 설정에서 위치 서비스를 켜주세요.');
+      } else {
+        throw Exception('위치 정보를 가져올 수 없습니다: ${e.toString()}');
+      }
+    }
+  }
+
+  // 위치 권한 상태 확인
+  Future<LocationPermission> checkLocationPermission() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('GPS: 권한 상태 확인 - $permission');
+      return permission;
+    } catch (e) {
+      debugPrint('GPS: 권한 상태 확인 오류: $e');
+      return LocationPermission.denied;
+    }
+  }
+
+  // 위치 서비스 상태 확인
+  Future<bool> isLocationServiceEnabled() async {
+    try {
+      bool enabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('GPS: 위치 서비스 상태 - $enabled');
+      return enabled;
+    } catch (e) {
+      debugPrint('GPS: 위치 서비스 상태 확인 오류: $e');
+      return false;
     }
   }
 }

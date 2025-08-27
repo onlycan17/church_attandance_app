@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:church_attendance_app/services/gps_service.dart';
 import 'package:church_attendance_app/services/supabase_service.dart';
 import 'package:church_attendance_app/services/notification_service.dart';
@@ -22,6 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _statusMessage = '위치 서비스 준비 중...';
   double _currentLatitude = 0.0;
   double _currentLongitude = 0.0;
+  String _locationPermissionStatus = '확인 중...';
+  String _locationServiceStatus = '확인 중...';
 
   @override
   void initState() {
@@ -30,17 +33,118 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initializeServices() async {
-    // Supabase 초기화
-    await _supabaseService.init();
+    try {
+      setState(() {
+        _statusMessage = '서비스 초기화 중...';
+      });
 
-    // NotificationService 초기화
-    await _notificationService.init();
+      // Supabase 초기화
+      await _supabaseService.init();
 
-    // GPSService에 SupabaseService 주입
-    _gpsService.setSupabaseService(_supabaseService);
+      // NotificationService 초기화
+      await _notificationService.init();
 
-    // 위치 서비스 시작
-    _startLocationMonitoring();
+      // GPSService에 SupabaseService 주입
+      _gpsService.setSupabaseService(_supabaseService);
+
+      // 위치 권한 및 서비스 상태 확인
+      await _checkLocationStatus();
+
+      // 현재 위치 정보 가져오기
+      await _getCurrentLocation();
+
+      // 위치 서비스 시작
+      _startLocationMonitoring();
+
+      setState(() {
+        _statusMessage = '초기화 완료 - 위치 서비스 준비됨';
+      });
+    } catch (e) {
+      debugPrint('서비스 초기화 오류: $e');
+      setState(() {
+        _statusMessage = '초기화 중 오류가 발생했습니다.';
+      });
+    }
+  }
+
+  Future<void> _checkLocationStatus() async {
+    try {
+      // 위치 권한 상태 확인
+      final permission = await _gpsService.checkLocationPermission();
+      setState(() {
+        _locationPermissionStatus = _getPermissionStatusText(permission);
+      });
+
+      // 위치 서비스 상태 확인
+      final serviceEnabled = await _gpsService.isLocationServiceEnabled();
+      setState(() {
+        _locationServiceStatus = serviceEnabled ? '활성화됨' : '비활성화됨';
+      });
+
+      debugPrint('위치 권한 상태: $permission');
+      debugPrint('위치 서비스 상태: $serviceEnabled');
+    } catch (e) {
+      debugPrint('위치 상태 확인 오류: $e');
+      setState(() {
+        _locationPermissionStatus = '확인 실패';
+        _locationServiceStatus = '확인 실패';
+      });
+    }
+  }
+
+  String _getPermissionStatusText(LocationPermission permission) {
+    switch (permission) {
+      case LocationPermission.always:
+        return '항상 허용';
+      case LocationPermission.whileInUse:
+        return '앱 사용 중 허용';
+      case LocationPermission.denied:
+        return '거부됨';
+      case LocationPermission.deniedForever:
+        return '영구 거부됨';
+      default:
+        return '알 수 없음';
+    }
+  }
+
+  Color _getPermissionColor(String permissionStatus) {
+    switch (permissionStatus) {
+      case '항상 허용':
+      case '앱 사용 중 허용':
+        return Colors.green;
+      case '거부됨':
+      case '영구 거부됨':
+        return Colors.red;
+      case '확인 실패':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      setState(() {
+        _statusMessage = '현재 위치 가져오는 중...';
+      });
+
+      final position = await _gpsService.getCurrentLocation();
+
+      setState(() {
+        _currentLatitude = position.latitude;
+        _currentLongitude = position.longitude;
+        _statusMessage = '현재 위치 정보 업데이트됨';
+      });
+
+      debugPrint(
+        '홈 화면: 현재 위치 - 위도: ${position.latitude}, 경도: ${position.longitude}',
+      );
+    } catch (e) {
+      debugPrint('현재 위치 가져오기 오류: $e');
+      setState(() {
+        _statusMessage = '위치 정보를 가져올 수 없습니다: ${e.toString()}';
+      });
+    }
   }
 
   Future<void> _startLocationMonitoring() async {
@@ -261,6 +365,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildStatusRow(
+                      Icons.security,
+                      '위치 권한',
+                      _locationPermissionStatus,
+                      _getPermissionColor(_locationPermissionStatus),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildStatusRow(
+                      Icons.gps_fixed,
+                      'GPS 서비스',
+                      _locationServiceStatus,
+                      _locationServiceStatus == '활성화됨'
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildStatusRow(
                       Icons.check_circle,
                       '출석 체크',
                       _isAttendanceChecked ? '완료됨' : '대기 중',
@@ -326,16 +446,67 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '현재 위치',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '현재 위치',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: _getCurrentLocation,
+                            tooltip: '위치 새로고침',
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
-                      Text('위도: $_currentLatitude'),
-                      Text('경도: $_currentLongitude'),
+                      if (_currentLatitude != 0.0 &&
+                          _currentLongitude != 0.0) ...[
+                        Text('위도: $_currentLatitude'),
+                        Text('경도: $_currentLongitude'),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '위치 정보 획득됨',
+                            style: TextStyle(
+                              color: Colors.green.shade800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        const Text('위치 정보 없음'),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '새로고침 버튼을 눌러 위치를 가져오세요',
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
