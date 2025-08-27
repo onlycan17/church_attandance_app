@@ -6,14 +6,14 @@ import 'package:church_attendance_app/services/supabase_service.dart';
 import 'package:church_attendance_app/background_location_callback.dart';
 
 class GPSService {
+  // 테스트용 상수들 (실제 운영에서는 데이터베이스에서 가져옴)
   static const double churchRadiusMeters = 80.0;
+  static const churchLatitude = 37.5665; // 서울 시청 위도 (테스트용)
+  static const churchLongitude = 126.9780; // 서울 시청 경도 (테스트용)
+
   static const Duration locationUpdateInterval = Duration(
     seconds: 10,
   ); // 배터리 절약을 위해 10초로 증가
-
-  // 교회 위치 (예시 좌표 - 실제 앱에서는 Supabase에서 가져와야 함)
-  static const churchLatitude = 37.5665; // 서울 시청 위도
-  static const churchLongitude = 126.9780; // 서울 시청 경도
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
@@ -118,6 +118,32 @@ class GPSService {
 
   Future<bool> isWithinChurchRadius(Position position) async {
     try {
+      // 데이터베이스에서 교회 위치 정보 가져오기
+      final currentService = await _supabaseService.getCurrentService();
+      if (currentService == null) {
+        debugPrint('현재 예배 서비스 정보를 찾을 수 없습니다.');
+        return false;
+      }
+
+      final serviceId = currentService['id'].toString();
+      final churchLocation = await _supabaseService.getChurchLocation(
+        serviceId,
+      );
+      if (churchLocation == null) {
+        debugPrint('교회 위치 정보를 찾을 수 없습니다.');
+        return false;
+      }
+
+      final churchLatitude = double.parse(
+        churchLocation['latitude'].toString(),
+      );
+      final churchLongitude = double.parse(
+        churchLocation['longitude'].toString(),
+      );
+      final churchRadiusMeters = double.parse(
+        churchLocation['radius_meters'].toString(),
+      );
+
       double distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,

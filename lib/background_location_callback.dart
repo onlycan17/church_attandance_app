@@ -9,6 +9,31 @@ void callbackDispatcher() {
     try {
       debugPrint('백그라운드 작업 시작: $task');
 
+      // 현재 시간 확인 (KST)
+      final now = DateTime.now();
+      final kstOffset = const Duration(hours: 9);
+      final kstNow = now.add(kstOffset);
+      final currentHour = kstNow.hour;
+      final currentMinute = kstNow.minute;
+
+      // 테스트용 시간 제한: 오전 7시부터 12시까지
+      if (currentHour < 7 || currentHour >= 12) {
+        debugPrint(
+          '백그라운드: GPS 수집 시간대가 아닙니다. 현재 시간: ${currentHour}:${currentMinute.toString().padLeft(2, '0')} KST',
+        );
+        return true; // 작업 취소가 아닌 정상 완료로 처리
+      }
+
+      // 30분 간격 확인 (정각 또는 30분에만 실행)
+      if (currentMinute != 0 && currentMinute != 30) {
+        debugPrint('백그라운드: 30분 간격이 아닙니다. 현재 분: $currentMinute');
+        return true;
+      }
+
+      debugPrint(
+        '백그라운드: GPS 수집 조건 만족 - 시간: ${currentHour}:${currentMinute.toString().padLeft(2, '0')} KST',
+      );
+
       // 백그라운드에서 위치 권한 확인
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -48,10 +73,23 @@ void callbackDispatcher() {
         return false;
       }
 
-      // 교회 위치 확인 (하드코딩된 값 사용)
-      const churchLatitude = 37.5665;
-      const churchLongitude = 126.9780;
-      const churchRadiusMeters = 80.0;
+      // 데이터베이스에서 교회 위치 정보 가져오기
+      final serviceId = currentService['id'].toString();
+      final churchLocation = await supabaseService.getChurchLocation(serviceId);
+      if (churchLocation == null) {
+        debugPrint('백그라운드: 교회 위치 정보를 찾을 수 없습니다.');
+        return false;
+      }
+
+      final churchLatitude = double.parse(
+        churchLocation['latitude'].toString(),
+      );
+      final churchLongitude = double.parse(
+        churchLocation['longitude'].toString(),
+      );
+      final churchRadiusMeters = double.parse(
+        churchLocation['radius_meters'].toString(),
+      );
 
       // 거리 계산
       double distance = Geolocator.distanceBetween(
@@ -62,7 +100,6 @@ void callbackDispatcher() {
       );
 
       if (distance <= churchRadiusMeters) {
-        final serviceId = currentService['id'] as String;
         final userId = currentUser.id;
 
         // 이미 출석 체크했는지 확인
@@ -80,13 +117,11 @@ void callbackDispatcher() {
             serviceId: serviceId,
           );
 
-          debugPrint('백그라운드 출석 체크 성공');
+          debugPrint('백그라운드 출석 체크 성공 - 거리: ${distance}m');
         } else {
           debugPrint('백그라운드: 이미 출석 체크가 완료되었습니다.');
         }
-      } else {
-        debugPrint('백그라운드: 교회 범위 밖입니다. 거리: ${distance}m');
-      }
+      } else {}
 
       return true;
     } catch (e) {

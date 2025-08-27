@@ -10,43 +10,58 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  bool _isInitialized = false;
+
   Future<void> init() async {
-    // 알림 초기화 설정
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    if (_isInitialized) {
+      debugPrint('알림 서비스가 이미 초기화되었습니다.');
+      return;
+    }
 
-    const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
-        );
+    try {
+      // 알림 초기화 설정
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsIOS,
-        );
+      const DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
+            requestAlertPermission: true,
+            requestBadgePermission: true,
+            requestSoundPermission: true,
+          );
 
-    await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
-    );
+      const InitializationSettings initializationSettings =
+          InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsIOS,
+          );
 
-    // Android 채널 설정
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'attendance_channel',
-      '출석 체크 알림',
-      description: '교회 출석 체크 관련 알림',
-      importance: Importance.high,
-      playSound: true,
-    );
+      await _flutterLocalNotificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: _onDidReceiveNotificationResponse,
+      );
 
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+      // Android 채널 설정
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'attendance_channel',
+        '출석 체크 알림',
+        description: '교회 출석 체크 관련 알림',
+        importance: Importance.high,
+        playSound: true,
+      );
+
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(channel);
+
+      _isInitialized = true;
+      debugPrint('알림 서비스 초기화 성공');
+    } catch (e) {
+      debugPrint('알림 서비스 초기화 오류: $e');
+      rethrow;
+    }
   }
 
   // 알림 응답 처리
@@ -61,6 +76,12 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
+    // 초기화되지 않았다면 초기화
+    if (!_isInitialized) {
+      debugPrint('알림 서비스가 초기화되지 않았습니다. 초기화 중...');
+      await init();
+    }
+
     const NotificationDetails notificationDetails = NotificationDetails(
       android: AndroidNotificationDetails(
         'attendance_channel',
@@ -93,6 +114,12 @@ class NotificationService {
     required DateTime scheduledDate,
     String? payload,
   }) async {
+    // 초기화되지 않았다면 초기화
+    if (!_isInitialized) {
+      debugPrint('알림 서비스가 초기화되지 않았습니다. 초기화 중...');
+      await init();
+    }
+
     final tz.TZDateTime tzScheduledDate = tz.TZDateTime.from(
       scheduledDate,
       tz.local,
@@ -173,13 +200,24 @@ class NotificationService {
     }
   }
 
+  // 초기화 상태 확인
+  bool get isInitialized => _isInitialized;
+
   // 모든 예약된 알림 취소
   Future<void> cancelAllNotifications() async {
+    if (!_isInitialized) {
+      debugPrint('알림 서비스가 초기화되지 않았습니다.');
+      return;
+    }
     await _flutterLocalNotificationsPlugin.cancelAll();
   }
 
   // 특정 알림 취소
   Future<void> cancelNotification(int id) async {
+    if (!_isInitialized) {
+      debugPrint('알림 서비스가 초기화되지 않았습니다.');
+      return;
+    }
     await _flutterLocalNotificationsPlugin.cancel(id);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
@@ -16,12 +17,33 @@ class SupabaseService {
   final Duration _cacheDuration = const Duration(minutes: 30); // 30분 캐시
 
   Future<void> init() async {
-    // Supabase 초기화 - 실제 앱에서는 환경 변수에서 URL과 키를 가져와야 함
-    final supabase = await Supabase.initialize(
-      url: 'https://qqgvkfsgloyggqpnemol.supabase.co',
-      anonKey: 'sbp_6269ac90378f3a770b45820e69139e1e3f696227',
-    );
-    _supabase = supabase.client;
+    try {
+      // 환경 변수에서 Supabase 설정 읽기
+      final supabaseUrl = dotenv.env['EXPO_PUBLIC_SUPABASE_URL'];
+      final supabaseKey = dotenv.env['EXPO_PUBLIC_SUPABASE_KEY'];
+
+      debugPrint('환경 변수 확인 - URL: $supabaseUrl');
+      debugPrint('환경 변수 확인 - KEY: ${supabaseKey?.substring(0, 10)}...');
+
+      if (supabaseUrl == null || supabaseKey == null) {
+        throw Exception('Supabase 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
+      }
+
+      if (supabaseUrl.isEmpty || supabaseKey.isEmpty) {
+        throw Exception('Supabase 환경 변수가 비어있습니다. .env 파일을 확인하세요.');
+      }
+
+      // 이미 main.dart에서 초기화된 Supabase 클라이언트를 사용
+      _supabase = Supabase.instance.client;
+      debugPrint('Supabase 클라이언트 연결 성공');
+
+      // 연결 테스트 - 간단한 쿼리로 테스트
+      final testQuery = await _supabase.from('users').select('id').limit(1);
+      debugPrint('Supabase 연결 테스트 성공: ${testQuery.length}개의 레코드 확인');
+    } catch (e) {
+      debugPrint('Supabase 연결 실패: $e');
+      rethrow;
+    }
   }
 
   SupabaseClient get client => _supabase;
