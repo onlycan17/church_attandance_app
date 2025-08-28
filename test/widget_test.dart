@@ -12,7 +12,9 @@ void main() {
   testWidgets('Smoke test', (WidgetTester tester) async {
     // Simple test that should work with basic Flutter setup
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: Center(child: Text('Test')))),
+      const MaterialApp(
+        home: Scaffold(body: Center(child: Text('Test'))),
+      ),
     );
 
     expect(find.text('Test'), findsOneWidget);

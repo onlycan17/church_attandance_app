@@ -16,23 +16,30 @@ void callbackDispatcher() {
       final currentHour = kstNow.hour;
       final currentMinute = kstNow.minute;
 
-      // 테스트용 시간 제한: 오전 7시부터 12시까지
-      if (currentHour < 7 || currentHour >= 12) {
+      // 테스트용 시간 제한: 오전 6시부터 오후 6시까지 (더 넓은 범위로 조정)
+      if (currentHour < 6 || currentHour >= 18) {
         debugPrint(
-          '백그라운드: GPS 수집 시간대가 아닙니다. 현재 시간: ${currentHour}:${currentMinute.toString().padLeft(2, '0')} KST',
+          '백그라운드: GPS 수집 시간대가 아닙니다. 현재 시간: $currentHour:${currentMinute.toString().padLeft(2, '0')} KST',
         );
         return true; // 작업 취소가 아닌 정상 완료로 처리
       }
 
-      // 30분 간격 확인 (정각 또는 30분에만 실행)
-      if (currentMinute != 0 && currentMinute != 30) {
-        debugPrint('백그라운드: 30분 간격이 아닙니다. 현재 분: $currentMinute');
+      // 15분 간격 확인 (더 빈번한 체크를 위해 조정)
+      if (currentMinute % 15 != 0) {
+        debugPrint('백그라운드: 15분 간격이 아닙니다. 현재 분: $currentMinute');
         return true;
       }
 
       debugPrint(
-        '백그라운드: GPS 수집 조건 만족 - 시간: ${currentHour}:${currentMinute.toString().padLeft(2, '0')} KST',
+        '백그라운드: GPS 수집 조건 만족 - 시간: $currentHour:${currentMinute.toString().padLeft(2, '0')} KST',
       );
+
+      // 현재 시간과 조건을 더 자세히 로깅
+      debugPrint(
+        '백그라운드: 현재 시간 조건 - 시간: $currentHour (6-18), 분: $currentMinute (15분 간격)',
+      );
+      debugPrint('백그라운드: 시간 조건 만족: ${currentHour >= 6 && currentHour < 18}');
+      debugPrint('백그라운드: 분 조건 만족: ${currentMinute % 15 == 0}');
 
       // 백그라운드에서 위치 권한 확인
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -50,7 +57,9 @@ void callbackDispatcher() {
 
       // 현재 위치 가져오기
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       debugPrint('백그라운드 위치 수집: ${position.latitude}, ${position.longitude}');
@@ -74,7 +83,7 @@ void callbackDispatcher() {
       }
 
       // 데이터베이스에서 교회 위치 정보 가져오기
-      final serviceId = currentService['id'].toString();
+      final serviceId = currentService['id'] as int;
       final churchLocation = await supabaseService.getChurchLocation(serviceId);
       if (churchLocation == null) {
         debugPrint('백그라운드: 교회 위치 정보를 찾을 수 없습니다.');
@@ -105,7 +114,7 @@ void callbackDispatcher() {
         // 이미 출석 체크했는지 확인
         final existingRecord = await supabaseService.checkAttendanceRecord(
           userId: userId,
-          serviceId: serviceId,
+          serviceId: serviceId.toString(),
         );
 
         if (existingRecord == null) {
@@ -114,7 +123,7 @@ void callbackDispatcher() {
             latitude: position.latitude,
             longitude: position.longitude,
             userId: userId,
-            serviceId: serviceId,
+            serviceId: serviceId.toString(),
           );
 
           debugPrint('백그라운드 출석 체크 성공 - 거리: ${distance}m');

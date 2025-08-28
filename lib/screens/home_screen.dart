@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:church_attendance_app/services/gps_service.dart';
 import 'package:church_attendance_app/services/supabase_service.dart';
 import 'package:church_attendance_app/services/notification_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -79,10 +80,24 @@ class _HomeScreenState extends State<HomeScreen> {
       final serviceEnabled = await _gpsService.isLocationServiceEnabled();
       setState(() {
         _locationServiceStatus = serviceEnabled ? '활성화됨' : '비활성화됨';
+        _isLocationEnabled =
+            permission == LocationPermission.always ||
+            permission == LocationPermission.whileInUse;
       });
 
       debugPrint('위치 권한 상태: $permission');
       debugPrint('위치 서비스 상태: $serviceEnabled');
+
+      // 권한이 거부되었을 경우 사용자 안내
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _statusMessage = '위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해주세요.';
+        });
+      } else if (permission == LocationPermission.denied) {
+        setState(() {
+          _statusMessage = '위치 권한이 필요합니다. 권한을 허용해주세요.';
+        });
+      }
     } catch (e) {
       debugPrint('위치 상태 확인 오류: $e');
       setState(() {
@@ -147,6 +162,68 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _requestLocationPermission() async {
+    try {
+      setState(() {
+        _statusMessage = '위치 권한 요청 중...';
+      });
+
+      // 위치 서비스 활성화 확인
+      final serviceEnabled = await _gpsService.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _statusMessage = '위치 서비스가 비활성화되어 있습니다. 설정에서 위치 서비스를 켜주세요.';
+        });
+        return;
+      }
+
+      // 권한 요청
+      final permission = await Geolocator.requestPermission();
+
+      // 권한 상태 다시 확인
+      await _checkLocationStatus();
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _statusMessage = '위치 권한이 영구적으로 거부되었습니다. 설정 앱에서 권한을 허용해주세요.';
+        });
+      } else if (permission == LocationPermission.denied) {
+        setState(() {
+          _statusMessage = '위치 권한이 거부되었습니다. 다시 시도하거나 설정에서 허용해주세요.';
+        });
+      } else {
+        setState(() {
+          _statusMessage = '위치 권한이 허용되었습니다!';
+        });
+        // 권한 허용 시 위치 모니터링 시작
+        await _startLocationMonitoring();
+      }
+    } catch (e) {
+      debugPrint('권한 요청 오류: $e');
+      setState(() {
+        _statusMessage = '권한 요청 중 오류가 발생했습니다.';
+      });
+    }
+  }
+
+  Future<void> _openAppSettings() async {
+    try {
+      final uri = Uri.parse('app-settings:');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        setState(() {
+          _statusMessage = '설정 앱을 열 수 없습니다. 수동으로 설정에서 위치 권한을 허용해주세요.';
+        });
+      }
+    } catch (e) {
+      debugPrint('설정 앱 열기 오류: $e');
+      setState(() {
+        _statusMessage = '설정 앱을 열 수 없습니다. 수동으로 설정에서 위치 권한을 허용해주세요.';
+      });
+    }
+  }
+
   Future<void> _startLocationMonitoring() async {
     try {
       _gpsService.startLocationMonitoring();
@@ -177,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await _gpsService.startBackgroundLocationMonitoring();
         setState(() {
           _isBackgroundMonitoringEnabled = true;
-          _statusMessage = '백그라운드 모니터링 시작됨 - 30분마다 위치 확인 (배터리 절약)';
+          _statusMessage = '백그라운드 모니터링 시작됨 - 15분마다 위치 확인 (배터리 절약)';
         });
       }
     } catch (e) {
@@ -514,6 +591,97 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 20),
 
+              // 권한 요청 버튼 (권한이 거부되었을 경우)
+              if (_locationPermissionStatus == '거부됨' ||
+                  _locationPermissionStatus == '영구 거부됨')
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.location_off,
+                              color: Colors.red.shade600,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '위치 권한이 필요합니다',
+                              style: TextStyle(
+                                color: Colors.red.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _locationPermissionStatus == '영구 거부됨'
+                                  ? '설정 앱에서 위치 권한을 허용해주세요.'
+                                  : '아래 버튼을 눌러 권한을 허용해주세요.',
+                              style: TextStyle(
+                                color: Colors.red.shade600,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_locationPermissionStatus == '영구 거부됨')
+                        Column(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _openAppSettings,
+                              icon: const Icon(Icons.settings),
+                              label: const Text('설정에서 권한 허용하기'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
+                                textStyle: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '설정 앱이 열리지 않으면 수동으로 설정하세요',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        )
+                      else
+                        ElevatedButton.icon(
+                          onPressed: _requestLocationPermission,
+                          icon: const Icon(Icons.location_on),
+                          label: const Text('위치 권한 허용하기'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            textStyle: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+
               // 출석 체크 버튼
               Center(
                 child: Column(
@@ -605,6 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       const Text('• 10초 간격으로 위치 수집 (배터리 절약)'),
+                      const Text('• 15분마다 백그라운드에서 위치 확인'),
                       const Text('• 교회 위치에서 80m 이내일 경우 자동 출석 체크'),
                       const Text('• GPS 위치 정보는 Supabase에 전송됩니다'),
                     ],
@@ -651,7 +820,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return;
           }
 
-          final serviceId = currentService['id'] as String;
+          final serviceId = currentService['id'].toString();
           final userId = currentUser.id;
 
           // 이미 출석 체크했는지 확인
@@ -722,9 +891,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Text(
             value,

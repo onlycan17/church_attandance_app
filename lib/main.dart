@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:workmanager/workmanager.dart';
 import 'package:church_attendance_app/screens/home_screen.dart';
 import 'package:church_attendance_app/screens/login_screen.dart';
 import 'package:church_attendance_app/services/supabase_service.dart';
 import 'package:church_attendance_app/services/notification_service.dart';
+import 'package:church_attendance_app/background_location_callback.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,8 +34,15 @@ void main() async {
     // 알림 서비스 실패해도 앱은 계속 실행
   }
 
-  // 백그라운드 작업 초기화 (GPS 서비스에서 처리)
-  // await Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+  // 백그라운드 작업 초기화 (잠시 지연 후 실행)
+  try {
+    await Future.delayed(const Duration(milliseconds: 500));
+    await Workmanager().initialize(callbackDispatcher);
+    debugPrint('Workmanager 초기화 성공');
+  } catch (e) {
+    debugPrint('Workmanager 초기화 실패: $e');
+    // Workmanager 실패해도 앱은 계속 실행
+  }
 
   runApp(const MyApp());
 }

@@ -3,7 +3,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:church_attendance_app/services/supabase_service.dart';
-import 'package:church_attendance_app/background_location_callback.dart';
 
 class GPSService {
   // 테스트용 상수들 (실제 운영에서는 데이터베이스에서 가져옴)
@@ -11,9 +10,7 @@ class GPSService {
   static const churchLatitude = 37.5665; // 서울 시청 위도 (테스트용)
   static const churchLongitude = 126.9780; // 서울 시청 경도 (테스트용)
 
-  static const Duration locationUpdateInterval = Duration(
-    seconds: 10,
-  ); // 배터리 절약을 위해 10초로 증가
+  static const Duration locationUpdateInterval = Duration(seconds: 5);
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
@@ -28,16 +25,10 @@ class GPSService {
     _supabaseService = supabaseService;
   }
 
-  // 백그라운드 작업 초기화
+  // 백그라운드 작업 초기화 (main.dart에서 처리하므로 제거)
   Future<void> initializeBackgroundService() async {
-    try {
-      // Workmanager 초기화
-      await Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
-
-      debugPrint('백그라운드 서비스 초기화 완료');
-    } catch (e) {
-      debugPrint('백그라운드 서비스 초기화 오류: $e');
-    }
+    // main.dart에서 Workmanager를 초기화하므로 여기서는 아무것도 하지 않음
+    debugPrint('백그라운드 서비스 초기화는 main.dart에서 처리됩니다');
   }
 
   // 백그라운드 위치 모니터링 시작
@@ -47,7 +38,7 @@ class GPSService {
       await Workmanager().registerPeriodicTask(
         'location_monitoring',
         'background_location_check',
-        frequency: const Duration(minutes: 30), // 30분마다 실행 - 배터리 절약
+        frequency: const Duration(minutes: 15), // 15분마다 실행 - 더 빈번한 체크
         constraints: Constraints(
           networkType: NetworkType.connected, // 네트워크 연결 필요
           requiresBatteryNotLow: true, // 배터리가 부족하지 않아야 함
@@ -75,20 +66,28 @@ class GPSService {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        debugPrint('GPS: 위치 서비스가 비활성화되어 있습니다.');
         _locationStatusController.add(false);
         return;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('GPS: 현재 권한 상태: $permission');
+
       if (permission == LocationPermission.denied) {
+        debugPrint('GPS: 위치 권한 요청 중...');
         permission = await Geolocator.requestPermission();
+        debugPrint('GPS: 권한 요청 결과: $permission');
+
         if (permission == LocationPermission.denied) {
+          debugPrint('GPS: 사용자가 위치 권한을 거부했습니다.');
           _locationStatusController.add(false);
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        debugPrint('GPS: 위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해주세요.');
         _locationStatusController.add(false);
         return;
       }
@@ -125,7 +124,7 @@ class GPSService {
         return false;
       }
 
-      final serviceId = currentService['id'].toString();
+      final serviceId = (currentService['id'] as int);
       final churchLocation = await _supabaseService.getChurchLocation(
         serviceId,
       );
@@ -194,7 +193,7 @@ class GPSService {
         return;
       }
 
-      final serviceId = currentService['id'] as String;
+      final serviceId = currentService['id'].toString();
       final userId = currentUser.id;
 
       // 이미 출석 체크했는지 확인
@@ -258,10 +257,12 @@ class GPSService {
 
       debugPrint('GPS: 위치 정보 요청 중...');
 
-      // 위치 정보 가져오기 (타임아웃 설정)
+      // 위치 정보 가져오기 (타임아웃/정확도 설정)
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high, // 정확도 높임
-        timeLimit: const Duration(seconds: 30), // 30초 타임아웃
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 30),
+        ),
       );
 
       debugPrint(
