@@ -5,7 +5,9 @@ import 'package:workmanager/workmanager.dart';
 import 'package:church_attendance_app/services/attendance_service.dart';
 
 class GPSService {
-  static const Duration locationUpdateInterval = Duration(seconds: 5);
+  static const Duration locationUpdateInterval = Duration(seconds: 10); // 배터리 절약을 위해 10초로 변경
+  static const int distanceFilter = 10; // 이동 거리 필터 (미터)
+  static const Duration positionTimeout = Duration(seconds: 45); // 위치 요청 타임아웃 (45초로 증가)
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
@@ -19,12 +21,14 @@ class GPSService {
     _attendanceService = attendanceService;
   }
 
+  /// 백그라운드 위치 모니터링 시작
+  /// 15분 간격으로 위치 확인 (배터리 절약)
   Future<void> startBackgroundLocationMonitoring() async {
     try {
       await Workmanager().registerPeriodicTask(
         'location_monitoring',
         'background_location_check',
-        frequency: const Duration(minutes: 15),
+        frequency: const Duration(minutes: 15), // 15분마다 실행
         constraints: Constraints(
           networkType: NetworkType.connected,
           requiresBatteryNotLow: true,
@@ -32,12 +36,13 @@ class GPSService {
         inputData: <String, dynamic>{},
       );
 
-      debugPrint('백그라운드 위치 모니터링 시작');
+      debugPrint('백그라운드 위치 모니터링 시작 (15분 간격)');
     } catch (e) {
       debugPrint('백그라운드 위치 모니터링 시작 오류: $e');
     }
   }
 
+  /// 백그라운드 위치 모니터링 중지
   Future<void> stopBackgroundLocationMonitoring() async {
     try {
       await Workmanager().cancelByUniqueName('location_monitoring');
@@ -47,6 +52,8 @@ class GPSService {
     }
   }
 
+  /// 포그라운드 위치 모니터링 시작
+  /// 앱이 실행 중일 때 10초 간격으로 위치 확인
   Future<void> startLocationMonitoring() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -77,28 +84,44 @@ class GPSService {
         return;
       }
 
+      // 기존 스트림이 있다면 취소
+      await _positionStream?.cancel();
+
+      // 위치 스트림 시작 (10초 간격, 10m 이동 시 업데이트)
       _positionStream =
           Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
+            locationSettings: LocationSettings(
               accuracy: LocationAccuracy.medium,
-              distanceFilter: 10,
+              distanceFilter: distanceFilter,
+              timeLimit: positionTimeout,
             ),
-          ).listen((Position position) {
-            _attendanceService.checkAttendance(position);
-          });
+          ).listen(
+        (Position position) async {
+          debugPrint('GPS: 위치 업데이트 - 위도: ${position.latitude}, 경도: ${position.longitude}');
+          await _attendanceService.checkAttendance(position);
+        },
+        onError: (error) {
+          debugPrint('GPS: 위치 스트림 오류 - $error');
+          _locationStatusController.add(false);
+        },
+      );
 
       _locationStatusController.add(true);
+      debugPrint('GPS: 위치 모니터링 시작 (10초 간격)');
     } catch (e) {
       debugPrint('GPS 위치 모니터링 시작 오류: $e');
       _locationStatusController.add(false);
     }
   }
 
+  /// 위치 모니터링 중지
   void stopLocationMonitoring() {
     _positionStream?.cancel();
     _locationStatusController.close();
+    debugPrint('GPS: 위치 모니터링 중지');
   }
 
+  /// 현재 위치 가져오기 (고정밀도)
   Future<Position> getCurrentLocation() async {
     try {
       debugPrint('GPS: 현재 위치 요청 시작');
@@ -130,9 +153,9 @@ class GPSService {
       debugPrint('GPS: 위치 정보 요청 중...');
 
       Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 30),
+          timeLimit: positionTimeout,
         ),
       );
 
@@ -156,6 +179,7 @@ class GPSService {
     }
   }
 
+  /// 위치 권한 상태 확인
   Future<LocationPermission> checkLocationPermission() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -167,6 +191,7 @@ class GPSService {
     }
   }
 
+  /// 위치 서비스 활성화 상태 확인
   Future<bool> isLocationServiceEnabled() async {
     try {
       bool enabled = await Geolocator.isLocationServiceEnabled();
@@ -178,6 +203,7 @@ class GPSService {
     }
   }
 
+  /// 교회 반경 내에 있는지 확인
   Future<bool> isWithinChurchRadius(Position position) async {
     return await _attendanceService.isWithinChurchRadius(position);
   }

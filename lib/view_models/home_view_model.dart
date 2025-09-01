@@ -52,8 +52,10 @@ class HomeViewModel extends ChangeNotifier {
 
       await _checkLocationStatus();
       await _getCurrentLocation();
-      _startLocationMonitoring();
-      await toggleBackgroundMonitoring();
+      await _startLocationMonitoring();
+      
+      // 백그라운드 모니터링은 사용자 상호작용 시 시작
+      // await toggleBackgroundMonitoring();
 
       _statusMessage = '초기화 완료 - 위치 서비스 준비됨';
       notifyListeners();
@@ -156,7 +158,7 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> _startLocationMonitoring() async {
     try {
-      _gpsService.startLocationMonitoring();
+      await _gpsService.startLocationMonitoring();
       _gpsService.locationStatus.listen((isEnabled) {
         _isLocationEnabled = isEnabled;
         _statusMessage = isEnabled ? '위치 서비스 활성화됨 - 출석 체크 대기 중' : '위치 서비스 비활성화됨';

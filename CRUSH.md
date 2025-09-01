@@ -13,6 +13,7 @@
 - 전체 테스트 실행: `flutter test -j 1`
 - 단일 테스트 파일 실행: `flutter test test/파일명.dart`
 - 개별 테스트 또는 그룹 실행: `flutter test --plain-name "테스트명"`
+- 특정 플랫폼 테스트: `flutter test --platform chrome`
 - 커버리지 포함 테스트: `flutter test --coverage`
 
 ## 코딩 스타일 & 네이밍 규칙
@@ -51,3 +52,11 @@
 - 단일 책임 원칙(SRP): 각 클래스/함수는 하나의 책임만 가집니다.
 - 개방-폐쇄 원칙(OCP): 확장에는 열려 있으나 수정에는 닫혀 있어야 합니다.
 - 중복 코드를 최소화하고, 재사용 가능한 컴포넌트와 함수를 설계합니다.
+
+## 임포트 순서
+1. Dart SDK 관련 (`import 'dart:...'`)
+2. Flutter 패키지 (`import 'package:flutter/...'`)
+3. 외부 패키지 (`import 'package:...'`)
+4. 내부 패키지 (`import 'package:church_attendance_app/...'`)
+
+각 그룹 내에서는 알파벳 순으로 정렬

@@ -37,7 +37,7 @@ void main() {
 
     test('위치 업데이트 간격 상수 확인', () {
       // Given
-      const expectedInterval = Duration(seconds: 5);
+      const expectedInterval = Duration(seconds: 10);
 
       // Then
       expect(GPSService.locationUpdateInterval, equals(expectedInterval));
