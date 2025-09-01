@@ -1,3 +1,4 @@
+import 'package:church_attendance_app/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:church_attendance_app/view_models/home_view_model.dart';
@@ -15,8 +16,32 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _HomeScreenContent extends StatelessWidget {
+class _HomeScreenContent extends StatefulWidget {
   const _HomeScreenContent();
+
+  @override
+  State<_HomeScreenContent> createState() => _HomeScreenContentState();
+}
+
+class _HomeScreenContentState extends State<_HomeScreenContent> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestPermissions();
+    });
+  }
+
+  void _requestPermissions() async {
+    // 알림 권한 요청
+    final notificationService =
+        Provider.of<NotificationService>(context, listen: false);
+    await notificationService.requestExactAlarmPermission();
+
+    // 뷰모델의 다른 권한 확인 로직도 여기서 호출 가능
+    // final viewModel = Provider.of<HomeViewModel>(context, listen: false);
+    // await viewModel.checkInitialStatus();
+  }
 
   Future<void> _openAppSettings() async {
     try {

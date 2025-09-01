@@ -1,5 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart'; // Added
+import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
@@ -19,6 +21,10 @@ class NotificationService {
     }
 
     try {
+      // Timezone 데이터베이스 초기화
+      tzdata.initializeTimeZones();
+      tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
+
       // 알림 초기화 설정
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -219,5 +225,16 @@ class NotificationService {
       return;
     }
     await _flutterLocalNotificationsPlugin.cancel(id);
+  }
+
+  // 정확한 알람 권한 요청 (Android 12+)
+  Future<void> requestExactAlarmPermission() async {
+    // Android 12 (API 31) 이상에서만 필요
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      final status = await Permission.scheduleExactAlarm.request();
+      if (status.isDenied) {
+        debugPrint('Exact alarm permission has been denied.');
+      }
+    }
   }
 }

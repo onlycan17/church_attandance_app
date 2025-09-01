@@ -23,17 +23,16 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
-  // SupabaseService 초기화
+  // 서비스 초기화
   final supabaseService = SupabaseService();
   await supabaseService.init();
 
-  // 알림 서비스 초기화 (에러 처리 추가)
+  final notificationService = NotificationService();
   try {
-    await NotificationService().init();
+    await notificationService.init();
     debugPrint('알림 서비스 초기화 성공');
   } catch (e) {
     debugPrint('알림 서비스 초기화 실패: $e');
-    // 알림 서비스 실패해도 앱은 계속 실행
   }
 
   // 백그라운드 작업 초기화 (잠시 지연 후 실행)
@@ -43,22 +42,29 @@ void main() async {
     debugPrint('Workmanager 초기화 성공');
   } catch (e) {
     debugPrint('Workmanager 초기화 실패: $e');
-    // Workmanager 실패해도 앱은 계속 실행
   }
 
-  runApp(MyApp(supabaseService: supabaseService));
+  runApp(MyApp(
+    supabaseService: supabaseService,
+    notificationService: notificationService,
+  ));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.supabaseService});
+  const MyApp({
+    super.key,
+    required this.supabaseService,
+    required this.notificationService,
+  });
   final SupabaseService supabaseService;
+  final NotificationService notificationService;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         Provider<SupabaseService>.value(value: supabaseService),
-        Provider(create: (_) => NotificationService()),
+        Provider<NotificationService>.value(value: notificationService),
         ChangeNotifierProvider(create: (_) => LoginViewModel()),
         ChangeNotifierProvider(create: (_) => HomeViewModel()),
       ],
