@@ -57,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // 위치 서비스 시작
       _startLocationMonitoring();
 
+      // 백그라운드 모니터링 시작
+      await _toggleBackgroundMonitoring();
+
       setState(() {
         _statusMessage = '초기화 완료 - 위치 서비스 준비됨';
       });

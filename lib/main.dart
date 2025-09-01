@@ -14,16 +14,11 @@ void main() async {
   // 환경 변수 로드
   await dotenv.load(fileName: ".env");
 
-  // 환경 변수에서 Supabase 설정 읽기
-  final supabaseUrl = dotenv.env['EXPO_PUBLIC_SUPABASE_URL'];
-  final supabaseKey = dotenv.env['EXPO_PUBLIC_SUPABASE_KEY'];
-
-  if (supabaseUrl == null || supabaseKey == null) {
-    throw Exception('Supabase 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
-  }
-
   // Supabase 초기화
-  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseKey);
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  );
 
   // 알림 서비스 초기화 (에러 처리 추가)
   try {

@@ -95,7 +95,7 @@ class GPSService {
       // 위치 업데이트 시작
       _positionStream =
           Geolocator.getPositionStream(
-            locationSettings: LocationSettings(
+            locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.medium, // 배터리 절약을 위해 중간 정확도로 변경
               distanceFilter: 10, // 10미터 단위로만 업데이트 - 배터리 절약
             ),
@@ -261,7 +261,7 @@ class GPSService {
       Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 30),
+          timeLimit: const Duration(seconds: 30),
         ),
       );
 

@@ -20,8 +20,8 @@ class SupabaseService {
   Future<void> init() async {
     try {
       // 환경 변수에서 Supabase 설정 읽기
-      final supabaseUrl = dotenv.env['EXPO_PUBLIC_SUPABASE_URL'];
-      final supabaseKey = dotenv.env['EXPO_PUBLIC_SUPABASE_KEY'];
+      final supabaseUrl = dotenv.env['SUPABASE_URL'];
+      final supabaseKey = dotenv.env['SUPABASE_ANON_KEY'];
 
       debugPrint('환경 변수 확인 - URL: $supabaseUrl');
       debugPrint('환경 변수 확인 - KEY: ${supabaseKey?.substring(0, 10)}...');

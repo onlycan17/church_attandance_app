@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      await _supabaseService.init();
       final response = await _supabaseService.signIn(
         _emailController.text.trim(),
         _passwordController.text,
@@ -80,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      await _supabaseService.init();
       final response = await _supabaseService.client.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
