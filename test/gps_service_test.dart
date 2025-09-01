@@ -1,3 +1,4 @@
+import 'package:church_attendance_app/services/attendance_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:church_attendance_app/services/gps_service.dart';
@@ -7,11 +8,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late GPSService gpsService;
   late SupabaseService supabaseService;
+  late AttendanceService attendanceService;
 
   setUp(() {
     gpsService = GPSService();
     supabaseService = SupabaseService();
-    gpsService.setSupabaseService(supabaseService);
+    attendanceService = AttendanceService(supabaseService);
+    gpsService.setAttendanceService(attendanceService);
   });
 
   group('GPSService 기본 기능 테스트', () {
@@ -20,23 +23,16 @@ void main() {
       expect(gpsService.locationStatus, isNotNull);
     });
 
-    test('SupabaseService 의존성 주입', () {
+    test('AttendanceService 의존성 주입', () {
       // Given
       final testSupabaseService = SupabaseService();
+      final testAttendanceService = AttendanceService(testSupabaseService);
 
       // When
-      gpsService.setSupabaseService(testSupabaseService);
+      gpsService.setAttendanceService(testAttendanceService);
 
       // Then
-      expect(testSupabaseService, isNotNull);
-    });
-
-    test('교회 반경 상수 확인', () {
-      // Given
-      const expectedRadius = 80.0;
-
-      // Then
-      expect(GPSService.churchRadiusMeters, equals(expectedRadius));
+      expect(testAttendanceService, isNotNull);
     });
 
     test('위치 업데이트 간격 상수 확인', () {
@@ -46,24 +42,14 @@ void main() {
       // Then
       expect(GPSService.locationUpdateInterval, equals(expectedInterval));
     });
-
-    test('교회 위치 상수 확인', () {
-      // Given
-      const expectedLatitude = 37.5665;
-      const expectedLongitude = 126.9780;
-
-      // Then
-      expect(GPSService.churchLatitude, equals(expectedLatitude));
-      expect(GPSService.churchLongitude, equals(expectedLongitude));
-    });
   });
 
   group('GPSService 위치 판별 테스트', () {
     test('교회 반경 내 위치 판별', () async {
       // Given - 교회 근처 위치 (약 10m 이내)
       final nearbyPosition = Position(
-        latitude: GPSService.churchLatitude + 0.0001, // 약 10m
-        longitude: GPSService.churchLongitude + 0.0001,
+        latitude: 37.5665 + 0.0001, // 약 10m
+        longitude: 126.9780 + 0.0001,
         timestamp: DateTime.now(),
         accuracy: 10.0,
         altitude: 0.0,
@@ -84,8 +70,8 @@ void main() {
     test('교회 반경 외 위치 판별', () async {
       // Given - 교회에서 먼 위치 (약 1km 이상)
       final farPosition = Position(
-        latitude: GPSService.churchLatitude + 0.01, // 약 1km
-        longitude: GPSService.churchLongitude + 0.01,
+        latitude: 37.5665 + 0.01, // 약 1km
+        longitude: 126.9780 + 0.01,
         timestamp: DateTime.now(),
         accuracy: 10.0,
         altitude: 0.0,
@@ -157,18 +143,6 @@ void main() {
   });
 
   group('GPSService 백그라운드 기능 테스트', () {
-    test('백그라운드 서비스 초기화', () async {
-      // When
-      try {
-        await gpsService.initializeBackgroundService();
-        // Then
-        // 백그라운드 서비스가 정상적으로 초기화됨
-      } catch (e) {
-        // 백그라운드 서비스 초기화 실패 - 테스트 환경에서는 정상
-        expect(e, isNotNull);
-      }
-    });
-
     test('백그라운드 모니터링 시작', () async {
       // When
       try {
