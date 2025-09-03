@@ -111,6 +111,34 @@ void callbackDispatcher() {
     } catch (e) {
       debugPrint('백그라운드 작업 오류: $e');
       final msg = e.toString();
+      // 실패 시에도 디버그 모드(3분 간격)라면 스스로 재스케줄
+      final nextSec = (inputData?['reschedule_interval_sec'] as int?) ?? 0;
+      if (nextSec > 0) {
+        try {
+          await Workmanager().registerOneOffTask(
+            'location_monitoring_debug',
+            'background_location_check',
+            initialDelay: Duration(seconds: nextSec),
+            existingWorkPolicy: ExistingWorkPolicy.replace,
+            constraints: Constraints(
+              networkType: NetworkType.connected,
+              requiresBatteryNotLow: true,
+            ),
+            inputData: <String, dynamic>{
+              'scheduled_at': DateTime.now().toIso8601String(),
+              'note': 'background_location_check_debug',
+              'reschedule_interval_sec': nextSec,
+              if ((inputData?['access_token'] as String?) != null)
+                'access_token': inputData?['access_token'],
+              if ((inputData?['refresh_token'] as String?) != null)
+                'refresh_token': inputData?['refresh_token'],
+            },
+          );
+          debugPrint('백그라운드 OneOff 재스케줄(실패 경로) ${nextSec}s 후');
+        } catch (e) {
+          debugPrint('백그라운드 OneOff 재스케줄 실패(실패 경로): $e');
+        }
+      }
       // 네트워크/DNS/타임아웃은 성공 처리 → 즉시 RETRY 방지, 다음 주기에 재시도
       if (msg.contains('SocketException') ||
           msg.contains('Failed host lookup') ||
