@@ -10,8 +10,9 @@ class GPSService {
   ); // 배터리 절약을 위해 10초로 변경
   static const int distanceFilter = 10; // 이동 거리 필터 (미터)
   static const Duration positionTimeout = Duration(
-    seconds: 45,
-  ); // 위치 요청 타임아웃 (45초로 증가)
+    seconds: 90,
+  ); // 위치 요청 타임아웃 (백그라운드에서는 90초로 완화)
+  static const Duration lastKnownMaxAge = Duration(minutes: 5); // 마지막 위치 허용 나이
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
@@ -240,7 +241,7 @@ class GPSService {
       final LocationSettings settings;
       if (forBackground && defaultTargetPlatform == TargetPlatform.android) {
         settings = AndroidSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium, // 배터리/획득속도 균형
           timeLimit: positionTimeout,
           foregroundNotificationConfig: const ForegroundNotificationConfig(
             notificationTitle: '위치 확인 중',
@@ -255,9 +256,25 @@ class GPSService {
         );
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: settings,
-      );
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: settings,
+        );
+      } on TimeoutException catch (_) {
+        debugPrint('GPS: 현재 위치 타임아웃 - lastKnownPosition 시도');
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) {
+          final ts = last.timestamp;
+          if (DateTime.now().difference(ts) <= lastKnownMaxAge) {
+            debugPrint(
+              'GPS: lastKnownPosition 사용 - 위도: ${last.latitude}, 경도: ${last.longitude}',
+            );
+            return last;
+          }
+        }
+        rethrow;
+      }
 
       debugPrint(
         'GPS: 위치 정보 획득 성공 - 위도: ${position.latitude}, 경도: ${position.longitude}, 정확도: ${position.accuracy}m',

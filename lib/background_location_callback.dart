@@ -111,10 +111,11 @@ void callbackDispatcher() {
     } catch (e) {
       debugPrint('백그라운드 작업 오류: $e');
       final msg = e.toString();
-      // 네트워크/DNS 이슈는 성공으로 처리하여 WorkManager의 즉시 재시도를 방지하고, 다음 주기(3분)에 재시도
+      // 네트워크/DNS/타임아웃은 성공 처리 → 즉시 RETRY 방지, 다음 주기에 재시도
       if (msg.contains('SocketException') ||
-          msg.contains('Failed host lookup')) {
-        debugPrint('백그라운드: 네트워크 미가용 - 다음 주기에 재시도');
+          msg.contains('Failed host lookup') ||
+          msg.contains('TimeoutException')) {
+        debugPrint('백그라운드: 일시적 이슈(네트워크/타임아웃) - 다음 주기에 재시도');
         return Future.value(true);
       }
       return Future.value(false);
