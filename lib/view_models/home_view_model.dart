@@ -53,7 +53,7 @@ class HomeViewModel extends ChangeNotifier {
       await _checkLocationStatus();
       await _getCurrentLocation();
       await _startLocationMonitoring();
-      
+
       // 백그라운드 모니터링은 사용자 상호작용 시 시작
       // await toggleBackgroundMonitoring();
 
@@ -161,7 +161,9 @@ class HomeViewModel extends ChangeNotifier {
       await _gpsService.startLocationMonitoring();
       _gpsService.locationStatus.listen((isEnabled) {
         _isLocationEnabled = isEnabled;
-        _statusMessage = isEnabled ? '위치 서비스 활성화됨 - 출석 체크 대기 중' : '위치 서비스 비활성화됨';
+        _statusMessage = isEnabled
+            ? '위치 서비스 활성화됨 - 출석 체크 대기 중'
+            : '위치 서비스 비활성화됨';
         notifyListeners();
       });
     } catch (e) {
@@ -176,9 +178,17 @@ class HomeViewModel extends ChangeNotifier {
         _isBackgroundMonitoringEnabled = false;
         _statusMessage = '백그라운드 모니터링 중지됨';
       } else {
-        await _gpsService.startBackgroundLocationMonitoring();
+        // 디버그 환경에서는 3분 간격 테스트를 위해 짧은 주기를 사용
+        // 운영 환경에서는 15분 고정(WorkManager 최소 주기)
+        const testingInterval = Duration(minutes: 3);
+        final tokens = _supabaseService.getCurrentTokens();
+        await _gpsService.startBackgroundLocationMonitoring(
+          interval: testingInterval,
+          accessToken: tokens['accessToken'],
+          refreshToken: tokens['refreshToken'],
+        );
         _isBackgroundMonitoringEnabled = true;
-        _statusMessage = '백그라운드 모니터링 시작됨 - 15분마다 위치 확인 (배터리 절약)';
+        _statusMessage = '백그라운드 모니터링 시작됨 - 3분마다 위치 확인(테스트 모드)';
       }
       notifyListeners();
     } catch (e) {

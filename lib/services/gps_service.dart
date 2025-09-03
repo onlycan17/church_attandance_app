@@ -5,9 +5,13 @@ import 'package:workmanager/workmanager.dart';
 import 'package:church_attendance_app/services/attendance_service.dart';
 
 class GPSService {
-  static const Duration locationUpdateInterval = Duration(seconds: 10); // 배터리 절약을 위해 10초로 변경
+  static const Duration locationUpdateInterval = Duration(
+    seconds: 10,
+  ); // 배터리 절약을 위해 10초로 변경
   static const int distanceFilter = 10; // 이동 거리 필터 (미터)
-  static const Duration positionTimeout = Duration(seconds: 45); // 위치 요청 타임아웃 (45초로 증가)
+  static const Duration positionTimeout = Duration(
+    seconds: 45,
+  ); // 위치 요청 타임아웃 (45초로 증가)
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
@@ -22,21 +26,58 @@ class GPSService {
   }
 
   /// 백그라운드 위치 모니터링 시작
-  /// 15분 간격으로 위치 확인 (배터리 절약)
-  Future<void> startBackgroundLocationMonitoring() async {
+  /// 기본 15분 간격, 테스트 시 더 짧은 주기는 OneOff 자체 재스케줄 방식 적용
+  Future<void> startBackgroundLocationMonitoring({
+    Duration? interval,
+    String? accessToken,
+    String? refreshToken,
+  }) async {
     try {
-      await Workmanager().registerPeriodicTask(
-        'location_monitoring',
-        'background_location_check',
-        frequency: const Duration(minutes: 15), // 15분마다 실행
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-          requiresBatteryNotLow: true,
-        ),
-        inputData: <String, dynamic>{},
-      );
-
-      debugPrint('백그라운드 위치 모니터링 시작 (15분 간격)');
+      final Duration target = interval ?? const Duration(minutes: 15);
+      if (target < const Duration(minutes: 15)) {
+        await Workmanager().registerOneOffTask(
+          'location_monitoring_debug',
+          'background_location_check',
+          initialDelay: target,
+          existingWorkPolicy: ExistingWorkPolicy.replace,
+          constraints: Constraints(
+            networkType: NetworkType.connected,
+            requiresBatteryNotLow: true,
+          ),
+          backoffPolicy: BackoffPolicy.exponential,
+          backoffPolicyDelay: const Duration(minutes: 5),
+          inputData: <String, dynamic>{
+            'scheduled_at': DateTime.now().toIso8601String(),
+            'note': 'background_location_check_debug',
+            'reschedule_interval_sec': target.inSeconds,
+            if (accessToken != null) 'access_token': accessToken,
+            if (refreshToken != null) 'refresh_token': refreshToken,
+          },
+        );
+        debugPrint(
+          '백그라운드 위치 모니터링 시작 (테스트 모드: ${target.inMinutes}분 간격, OneOff 재스케줄)',
+        );
+      } else {
+        await Workmanager().registerPeriodicTask(
+          'location_monitoring',
+          'background_location_check',
+          frequency: const Duration(minutes: 15), // 최소 15분
+          constraints: Constraints(
+            networkType: NetworkType.connected,
+            requiresBatteryNotLow: true,
+          ),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+          backoffPolicy: BackoffPolicy.exponential,
+          backoffPolicyDelay: const Duration(minutes: 5),
+          inputData: <String, dynamic>{
+            'scheduled_at': DateTime.now().toIso8601String(),
+            'note': 'background_location_check',
+            if (accessToken != null) 'access_token': accessToken,
+            if (refreshToken != null) 'refresh_token': refreshToken,
+          },
+        );
+        debugPrint('백그라운드 위치 모니터링 시작 (15분 간격)');
+      }
     } catch (e) {
       debugPrint('백그라운드 위치 모니터링 시작 오류: $e');
     }
@@ -46,6 +87,7 @@ class GPSService {
   Future<void> stopBackgroundLocationMonitoring() async {
     try {
       await Workmanager().cancelByUniqueName('location_monitoring');
+      await Workmanager().cancelByUniqueName('location_monitoring_debug');
       debugPrint('백그라운드 위치 모니터링 중지');
     } catch (e) {
       debugPrint('백그라운드 위치 모니터링 중지 오류: $e');
@@ -96,15 +138,20 @@ class GPSService {
               timeLimit: positionTimeout,
             ),
           ).listen(
-        (Position position) async {
-          debugPrint('GPS: 위치 업데이트 - 위도: ${position.latitude}, 경도: ${position.longitude}');
-          await _attendanceService.checkAttendance(position);
-        },
-        onError: (error) {
-          debugPrint('GPS: 위치 스트림 오류 - $error');
-          _locationStatusController.add(false);
-        },
-      );
+            (Position position) async {
+              debugPrint(
+                'GPS: 위치 업데이트 - 위도: ${position.latitude}, 경도: ${position.longitude}',
+              );
+              await _attendanceService.checkAttendance(position);
+              // 위치 로그(테스트용)
+              // checkAttendance 내부에서도 저장하지만, 포그라운드 스트림 주기 확인을 위해 이중 호출 방지 목적이라면 제거 가능
+              // 여기서는 중복 저장을 피하기 위해 추가 호출은 생략
+            },
+            onError: (error) {
+              debugPrint('GPS: 위치 스트림 오류 - $error');
+              _locationStatusController.add(false);
+            },
+          );
 
       _locationStatusController.add(true);
       debugPrint('GPS: 위치 모니터링 시작 (10초 간격)');
@@ -122,7 +169,8 @@ class GPSService {
   }
 
   /// 현재 위치 가져오기 (고정밀도)
-  Future<Position> getCurrentLocation() async {
+  /// forBackground=true 시 Android에서 포그라운드 알림을 사용해 위치 접근
+  Future<Position> getCurrentLocation({bool forBackground = false}) async {
     try {
       debugPrint('GPS: 현재 위치 요청 시작');
 
@@ -152,11 +200,26 @@ class GPSService {
 
       debugPrint('GPS: 위치 정보 요청 중...');
 
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: LocationSettings(
+      final LocationSettings settings;
+      if (forBackground && defaultTargetPlatform == TargetPlatform.android) {
+        settings = AndroidSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: positionTimeout,
-        ),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationTitle: '위치 확인 중',
+            notificationText: '백그라운드에서 위치를 확인하고 있습니다.',
+            enableWakeLock: true,
+          ),
+        );
+      } else {
+        settings = LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: positionTimeout,
+        );
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: settings,
       );
 
       debugPrint(

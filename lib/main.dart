@@ -37,17 +37,22 @@ void main() async {
 
   // 백그라운드 작업 초기화 (잠시 지연 후 실행)
   try {
-    await Future.delayed(const Duration(milliseconds: 500));
-    await Workmanager().initialize(callbackDispatcher);
+    await Future.delayed(const Duration(milliseconds: 300));
+    await Workmanager().initialize(
+      callbackDispatcher,
+      // isInDebugMode 파라미터는 더 이상 사용되지 않음
+    );
     debugPrint('Workmanager 초기화 성공');
   } catch (e) {
     debugPrint('Workmanager 초기화 실패: $e');
   }
 
-  runApp(MyApp(
-    supabaseService: supabaseService,
-    notificationService: notificationService,
-  ));
+  runApp(
+    MyApp(
+      supabaseService: supabaseService,
+      notificationService: notificationService,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -90,15 +95,18 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final supabaseService = Provider.of<SupabaseService>(context, listen: false);
+    final supabaseService = Provider.of<SupabaseService>(
+      context,
+      listen: false,
+    );
     return StreamBuilder<User?>(
-      stream: supabaseService.client.auth.onAuthStateChange.map((event) => event.session?.user),
+      stream: supabaseService.client.auth.onAuthStateChange.map(
+        (event) => event.session?.user,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
         if (snapshot.hasData) {

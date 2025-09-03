@@ -104,6 +104,18 @@ class SupabaseService {
     }
   }
 
+  Map<String, String?> getCurrentTokens() {
+    try {
+      final session = _supabase.auth.currentSession;
+      final access = session?.accessToken;
+      final refresh = session?.refreshToken;
+      return {'accessToken': access, 'refreshToken': refresh};
+    } catch (e) {
+      debugPrint('토큰 조회 오류: $e');
+      return {'accessToken': null, 'refreshToken': null};
+    }
+  }
+
   void _clearCache() {
     _cachedUser = null;
     _cachedCurrentService = null;
@@ -137,6 +149,49 @@ class SupabaseService {
     } catch (e) {
       debugPrint('출석 체크 데이터 전송 오류: $e');
       rethrow;
+    }
+  }
+
+  Future<void> insertLocationLog({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    String source = 'foreground',
+  }) async {
+    try {
+      final user = getCurrentUser();
+      if (user == null) {
+        debugPrint('위치 로그 건너뜀: 로그인 사용자 없음');
+        return;
+      }
+
+      final userIdInt = await _resolveInternalUserId(user.id);
+      if (userIdInt == null) {
+        debugPrint('위치 로그 건너뜀: users 매핑 ID 없음');
+        return;
+      }
+
+      int? serviceIdInt;
+      final currentService = await getCurrentService();
+      if (currentService != null) {
+        final sid = currentService['id'];
+        serviceIdInt = sid is int ? sid : int.tryParse(sid.toString());
+      }
+
+      final payload = <String, dynamic>{
+        'user_id': userIdInt,
+        'latitude': latitude,
+        'longitude': longitude,
+        if (accuracy != null) 'accuracy': accuracy,
+        'source': source,
+        'captured_at': DateTime.now().toIso8601String(),
+        if (serviceIdInt != null) 'service_id': serviceIdInt,
+      };
+
+      await _supabase.from('location_logs').insert(payload);
+      debugPrint('위치 로그 저장 완료: $source, $latitude,$longitude');
+    } catch (e) {
+      debugPrint('위치 로그 저장 오류: $e');
     }
   }
 

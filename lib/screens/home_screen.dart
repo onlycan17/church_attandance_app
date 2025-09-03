@@ -34,8 +34,10 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
 
   void _requestPermissions() async {
     // 알림 권한 요청
-    final notificationService =
-        Provider.of<NotificationService>(context, listen: false);
+    final notificationService = Provider.of<NotificationService>(
+      context,
+      listen: false,
+    );
     await notificationService.requestExactAlarmPermission();
 
     // 뷰모델의 다른 권한 확인 로직도 여기서 호출 가능
@@ -199,7 +201,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                       Icons.check_circle,
                       '출석 체크',
                       viewModel.isAttendanceChecked ? '완료됨' : '대기 중',
-                      viewModel.isAttendanceChecked ? Colors.green : Colors.orange,
+                      viewModel.isAttendanceChecked
+                          ? Colors.green
+                          : Colors.orange,
                     ),
                     const SizedBox(height: 12),
                     _buildStatusRow(
@@ -215,7 +219,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                       Icons.notifications,
                       '예배 알림',
                       viewModel.isNotificationEnabled ? '설정됨' : '미설정',
-                      viewModel.isNotificationEnabled ? Colors.green : Colors.grey,
+                      viewModel.isNotificationEnabled
+                          ? Colors.green
+                          : Colors.grey,
                     ),
                     if (viewModel.statusMessage.isNotEmpty) ...[
                       const SizedBox(height: 16),
@@ -248,6 +254,55 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                       ),
                     ],
                   ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // 배터리 최적화 안내 섹션
+              Card(
+                elevation: 4,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.battery_saver,
+                            color: Colors.blue.shade600,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '배터리 최적화 안내 (Android)',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '백그라운드 위치 수집이 원활하려면 기기 설정에서 배터리 최적화 예외로 등록해 주세요.\n'
+                        '제조사마다 경로가 다를 수 있습니다.',
+                      ),
+                      const SizedBox(height: 8),
+                      const Text('권장 단계:'),
+                      const SizedBox(height: 4),
+                      const Text('1) 설정 > 배터리/절전/앱 배터리 관리'),
+                      const Text('2) 본 앱 선택 > 최적화 해제/제한 없음으로 설정'),
+                      const Text('3) 백그라운드 데이터 사용 허용, 알림 허용'),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          onPressed: _openAppSettings,
+                          icon: const Icon(Icons.settings),
+                          label: const Text('설정 앱 열기'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -396,7 +451,8 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                         )
                       else
                         ElevatedButton.icon(
-                          onPressed: () => viewModel.requestLocationPermission(),
+                          onPressed: () =>
+                              viewModel.requestLocationPermission(),
                           icon: const Icon(Icons.location_on),
                           label: const Text('위치 권한 허용하기'),
                           style: ElevatedButton.styleFrom(
@@ -466,7 +522,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
                             : Icons.notifications,
                       ),
                       label: Text(
-                        viewModel.isNotificationEnabled ? '예배 알림 취소' : '예배 알림 설정',
+                        viewModel.isNotificationEnabled
+                            ? '예배 알림 취소'
+                            : '예배 알림 설정',
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: viewModel.isNotificationEnabled
@@ -533,9 +591,9 @@ class _HomeScreenContentState extends State<_HomeScreenContent> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Text(
             value,

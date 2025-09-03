@@ -40,7 +40,8 @@ class _LoginScreenContentState extends State<_LoginScreenContent> {
           padding: const EdgeInsets.all(24.0),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height - kToolbarHeight - 24,
+              minHeight:
+                  MediaQuery.of(context).size.height - kToolbarHeight - 24,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -102,7 +103,8 @@ class _LoginScreenContentState extends State<_LoginScreenContent> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                if (viewModel.errorMessage.isNotEmpty) const SizedBox(height: 16),
+                if (viewModel.errorMessage.isNotEmpty)
+                  const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: viewModel.isLoading
                       ? null
@@ -111,7 +113,8 @@ class _LoginScreenContentState extends State<_LoginScreenContent> {
                             _emailController.text.trim(),
                             _passwordController.text,
                           );
-                          if (success && mounted) {
+                          if (!context.mounted) return;
+                          if (success) {
                             Navigator.of(context).pushReplacementNamed('/home');
                           }
                         },
