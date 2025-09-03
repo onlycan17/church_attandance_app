@@ -37,12 +37,10 @@ class SupabaseService {
       _supabase = Supabase.instance.client;
       _testDataService = TestDataService(this);
       debugPrint('Supabase 클라이언트 연결 성공');
-
-      final testQuery = await _supabase.from('users').select('email').limit(1);
-      debugPrint('Supabase 연결 테스트 성공: ${testQuery.length}개의 레코드 확인');
+      // 네트워크가 없는 백그라운드 환경을 고려하여 즉시 쿼리 테스트는 수행하지 않음
     } catch (e) {
       debugPrint('Supabase 연결 실패: $e');
-      rethrow;
+      // 백그라운드에서는 네트워크 부재가 빈번할 수 있으므로 fatal로 보지 않음
     }
   }
 

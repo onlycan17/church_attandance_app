@@ -130,26 +130,27 @@ class GPSService {
       await _positionStream?.cancel();
 
       // 위치 스트림 시작 (10초 간격, 10m 이동 시 업데이트)
+      final LocationSettings streamSettings = _streamSettings();
       _positionStream =
-          Geolocator.getPositionStream(
-            locationSettings: LocationSettings(
-              accuracy: LocationAccuracy.medium,
-              distanceFilter: distanceFilter,
-              timeLimit: positionTimeout,
-            ),
-          ).listen(
+          Geolocator.getPositionStream(locationSettings: streamSettings).listen(
             (Position position) async {
               debugPrint(
                 'GPS: 위치 업데이트 - 위도: ${position.latitude}, 경도: ${position.longitude}',
               );
+              _locationStatusController.add(true);
               await _attendanceService.checkAttendance(position);
-              // 위치 로그(테스트용)
-              // checkAttendance 내부에서도 저장하지만, 포그라운드 스트림 주기 확인을 위해 이중 호출 방지 목적이라면 제거 가능
-              // 여기서는 중복 저장을 피하기 위해 추가 호출은 생략
             },
-            onError: (error) {
+            onError: (error) async {
               debugPrint('GPS: 위치 스트림 오류 - $error');
               _locationStatusController.add(false);
+              final msg = error.toString();
+              if (msg.contains('Time limit') || error is TimeoutException) {
+                await Future.delayed(const Duration(seconds: 2));
+                try {
+                  await _positionStream?.cancel();
+                } catch (_) {}
+                await _restartPositionStream();
+              }
             },
           );
 
@@ -166,6 +167,42 @@ class GPSService {
     _positionStream?.cancel();
     _locationStatusController.close();
     debugPrint('GPS: 위치 모니터링 중지');
+  }
+
+  Future<void> _restartPositionStream() async {
+    try {
+      final LocationSettings s = _streamSettings();
+      _positionStream = Geolocator.getPositionStream(locationSettings: s).listen(
+        (Position position) async {
+          debugPrint(
+            'GPS: 위치 업데이트(재시작) - 위도: ${position.latitude}, 경도: ${position.longitude}',
+          );
+          _locationStatusController.add(true);
+          await _attendanceService.checkAttendance(position);
+        },
+        onError: (error) {
+          debugPrint('GPS: 위치 스트림 오류(재시작) - $error');
+          _locationStatusController.add(false);
+        },
+      );
+      debugPrint('GPS: 위치 스트림 재시작 완료');
+    } catch (e) {
+      debugPrint('GPS: 위치 스트림 재시작 실패: $e');
+    }
+  }
+
+  LocationSettings _streamSettings() {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.medium,
+        distanceFilter: distanceFilter,
+        intervalDuration: locationUpdateInterval,
+      );
+    }
+    return LocationSettings(
+      accuracy: LocationAccuracy.medium,
+      distanceFilter: distanceFilter,
+    );
   }
 
   /// 현재 위치 가져오기 (고정밀도)
