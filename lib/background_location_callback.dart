@@ -78,6 +78,39 @@ void callbackDispatcher() {
 
       debugPrint('백그라운드 출석 체크 완료');
 
+      // 디버그 모드: 짧은 간격(기본 15초)으로 연속 위치 로그 저장(총 60초 등)
+      final int burstIntervalSec =
+          (inputData?['test_burst_interval_sec'] as int?) ??
+          int.tryParse(dotenv.env['TEST_BURST_INTERVAL_SEC'] ?? '') ??
+          0;
+      final int burstTotalSec =
+          (inputData?['test_burst_total_sec'] as int?) ??
+          int.tryParse(dotenv.env['TEST_BURST_TOTAL_SEC'] ?? '') ??
+          0;
+      if (burstIntervalSec > 0 && burstTotalSec > 0) {
+        final int loops = (burstTotalSec / burstIntervalSec).floor();
+        for (int i = 0; i < loops; i++) {
+          await Future.delayed(Duration(seconds: burstIntervalSec));
+          try {
+            // 빠른 저장을 위해 우선 lastKnownPosition 사용
+            final last = await Geolocator.getLastKnownPosition();
+            if (last != null) {
+              await attendanceService.logBackgroundLocation(last);
+              debugPrint('백그라운드 테스트 버스트 저장 ${i + 1}/$loops');
+            } else {
+              // fallback: 현재 위치 재시도(짧은 시도)
+              final quick = await gpsService.getCurrentLocation(
+                forBackground: true,
+              );
+              await attendanceService.logBackgroundLocation(quick);
+              debugPrint('백그라운드 테스트 버스트(현재 위치) 저장 ${i + 1}/$loops');
+            }
+          } catch (e) {
+            debugPrint('백그라운드 테스트 버스트 저장 실패: $e');
+          }
+        }
+      }
+
       // 디버그(3분 등) 테스트용: 입력 데이터에 재스케줄 간격이 있으면 OneOff 재등록
       final nextSec = (inputData?['reschedule_interval_sec'] as int?) ?? 0;
       if (nextSec > 0) {
@@ -95,6 +128,8 @@ void callbackDispatcher() {
               'scheduled_at': DateTime.now().toIso8601String(),
               'note': 'background_location_check_debug',
               'reschedule_interval_sec': nextSec,
+              'test_burst_interval_sec': burstIntervalSec,
+              'test_burst_total_sec': burstTotalSec,
               if ((inputData?['access_token'] as String?) != null)
                 'access_token': inputData?['access_token'],
               if ((inputData?['refresh_token'] as String?) != null)

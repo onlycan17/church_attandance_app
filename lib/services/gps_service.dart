@@ -51,6 +51,9 @@ class GPSService {
             'scheduled_at': DateTime.now().toIso8601String(),
             'note': 'background_location_check_debug',
             'reschedule_interval_sec': target.inSeconds,
+            // 테스트 버스트(짧은 간격 연속 로그) 파라미터: 15초 간격으로 60초간 추가 저장
+            'test_burst_interval_sec': 15,
+            'test_burst_total_sec': 60,
             if (accessToken != null) 'access_token': accessToken,
             if (refreshToken != null) 'refresh_token': refreshToken,
           },
