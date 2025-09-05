@@ -1,7 +1,7 @@
 # 교회 예배 출석 체크 - 통합 TODO 리스트
 
 ## 현재 작업
-- [ ] 백그라운드 신뢰성 B안: 오프라인 큐(SQLite) 구축 → 네트워크 복구 시 동기화 (동기화 재시도/지수 백오프 보강)
+- [ ] 백그라운드 신뢰성 B안: 오프라인 큐(SQLite) — 진단 로그 보강, 단위 테스트 추가
 - [ ] iOS 백그라운드 위치 업데이트 지원(Background Modes/설명 키/구현)
 - [ ] 배터리 최적화 예외 안내 UI/문서 정리(제조사별 가이드)
 
@@ -36,7 +36,7 @@
 - [x] 로컬 큐 스키마 설계: `log_queue(id, user_id, service_id, lat, lng, accuracy, source, captured_at, retries, created_at)`
 - [x] `LocalQueueService` 작성: enqueue/dequeue(batch)/delete(ids)/count
 - [x] 백그라운드 콜백: 삽입 실패 시 enqueue, 성공 시 큐 비우기 시도(100건)
-- [ ] 업로드 재시도: 지수 백오프, 최대 재시도 한도(예: 5회)
+- [x] 업로드 재시도: 지수 백오프, 최대 재시도 한도(예: 5회) — next_attempt_at 컬럼 기반
 - [ ] 진단 로그: 원인별(네트워크/DNS/권한) 분기 로깅
 - [ ] 테스트: 서비스 단위 테스트(큐 입출력/정렬/삭제)
 
