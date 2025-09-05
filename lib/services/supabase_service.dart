@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:church_attendance_app/services/test_data_service.dart';
@@ -17,6 +18,7 @@ class SupabaseService {
   DateTime? _serviceCacheTime;
   final Duration _cacheDuration = const Duration(minutes: 30);
   int? _cachedUserIntId;
+  String? _lastAccessToken;
 
   Future<void> init() async {
     try {
@@ -45,6 +47,10 @@ class SupabaseService {
   }
 
   SupabaseClient get client => _supabase;
+
+  void registerExternalAccessToken(String token) {
+    _lastAccessToken = token;
+  }
 
   Future<AuthResponse> signIn(String username, String password) async {
     try {
@@ -158,12 +164,23 @@ class SupabaseService {
   }) async {
     try {
       final user = getCurrentUser();
-      if (user == null) {
-        debugPrint('위치 로그 건너뜀: 로그인 사용자 없음');
-        return;
+      int? userIdInt;
+      if (user != null) {
+        userIdInt = await _resolveInternalUserId(user.id);
+      } else {
+        // currentUser가 없으면 access token 기반으로 이메일 추출 후 사용자 ID 매핑 시도
+        final token =
+            _lastAccessToken ?? _supabase.auth.currentSession?.accessToken;
+        final email = token != null ? _decodeEmailFromJwt(token) : null;
+        if (email != null) {
+          userIdInt = await _resolveInternalUserIdByEmail(email);
+        }
+        if (userIdInt == null) {
+          debugPrint('위치 로그 건너뜀: 로그인 사용자 없음');
+          return;
+        }
       }
 
-      final userIdInt = await _resolveInternalUserId(user.id);
       if (userIdInt == null) {
         debugPrint('위치 로그 건너뜀: users 매핑 ID 없음');
         return;
@@ -190,6 +207,45 @@ class SupabaseService {
       debugPrint('위치 로그 저장 완료: $source, $latitude,$longitude');
     } catch (e) {
       debugPrint('위치 로그 저장 오류: $e');
+    }
+  }
+
+  String? _decodeEmailFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      String normalized(String s) {
+        var out = s.replaceAll('-', '+').replaceAll('_', '/');
+        while (out.length % 4 != 0) {
+          out += '=';
+        }
+        return out;
+      }
+
+      final payload = parts[1];
+      final decoded = utf8.decode(base64.decode(normalized(payload)));
+      final map = jsonDecode(decoded) as Map<String, dynamic>;
+      return map['email']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int?> _resolveInternalUserIdByEmail(String email) async {
+    try {
+      final userRecord = await _supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+      if (userRecord != null) {
+        final id = userRecord['id'];
+        return id is int ? id : int.tryParse(id.toString());
+      }
+      return null;
+    } catch (e) {
+      debugPrint('사용자 ID 이메일 매핑 오류: $e');
+      return null;
     }
   }
 

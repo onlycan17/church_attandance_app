@@ -31,7 +31,18 @@ void callbackDispatcher() {
       try {
         final at = (inputData?['access_token'] as String?)?.trim();
         final rt = (inputData?['refresh_token'] as String?)?.trim();
-        if (at != null && at.isNotEmpty && rt != null && rt.isNotEmpty) {
+
+        // 우선 접근 토큰으로 인증 헤더 설정(네트워크 없이도 설정 가능)
+        if (at != null && at.isNotEmpty) {
+          // SupabaseService에 보조 저장(사용자 정보가 null일 때 JWT 디코드용)
+          try {
+            SupabaseService().registerExternalAccessToken(at);
+          } catch (_) {}
+          debugPrint('백그라운드: access token 수신 및 보조 저장');
+        }
+
+        // 가능하면 refresh token으로 세션 복구(네트워크 필요, 실패해도 치명적 아님)
+        if (rt != null && rt.isNotEmpty) {
           try {
             await Supabase.instance.client.auth.setSession(rt);
             debugPrint('백그라운드: 세션 복구 시도 완료');
