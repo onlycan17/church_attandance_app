@@ -20,30 +20,41 @@ class LocalQueueService {
       dbPath,
       version: 1,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS log_queue (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            service_id INTEGER NULL,
-            lat REAL NOT NULL,
-            lng REAL NOT NULL,
-            accuracy REAL NULL,
-            source TEXT NOT NULL,
-            captured_at TEXT NOT NULL,
-            retries INTEGER NOT NULL DEFAULT 0,
-            next_attempt_at TEXT NULL,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-          );
-        ''');
-        await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_log_queue_user ON log_queue(user_id);',
-        );
-        await db.execute(
-          'CREATE INDEX IF NOT EXISTS idx_log_queue_captured ON log_queue(captured_at);',
-        );
+        await _createSchema(db);
       },
     );
     await _ensureColumns();
+  }
+
+  // 테스트용: 외부에서 주입한 DB로 초기화
+  Future<void> initWithDb(Database db) async {
+    _db = db;
+    await _createSchema(db);
+    await _ensureColumns();
+  }
+
+  Future<void> _createSchema(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS log_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        service_id INTEGER NULL,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        accuracy REAL NULL,
+        source TEXT NOT NULL,
+        captured_at TEXT NOT NULL,
+        retries INTEGER NOT NULL DEFAULT 0,
+        next_attempt_at TEXT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_log_queue_user ON log_queue(user_id);',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_log_queue_captured ON log_queue(captured_at);',
+    );
   }
 
   Future<void> _ensureColumns() async {
