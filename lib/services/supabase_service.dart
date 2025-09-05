@@ -266,7 +266,9 @@ class SupabaseService {
 
       await _supabase.from('location_logs').insert(payload);
       return true;
-    } catch (_) {
+    } catch (e) {
+      final kind = _classifyError(e);
+      debugPrint('위치 로그 저장 실패[$kind]: $e');
       return false;
     }
   }
@@ -277,9 +279,27 @@ class SupabaseService {
       await _supabase.from('location_logs').insert(rows);
       return true;
     } catch (e) {
-      debugPrint('위치 로그 일괄 저장 오류: $e');
+      final kind = _classifyError(e);
+      debugPrint('위치 로그 일괄 저장 오류[$kind]: $e');
       return false;
     }
+  }
+
+  String _classifyError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('failed host lookup') || msg.contains('dns')) {
+      return 'dns';
+    }
+    if (msg.contains('socketexception') || msg.contains('network')) {
+      return 'network';
+    }
+    if (msg.contains('timeout')) {
+      return 'timeout';
+    }
+    if (msg.contains('unauthorized') || msg.contains('401')) {
+      return 'auth';
+    }
+    return 'unknown';
   }
 
   String? _decodeEmailFromJwt(String token) {

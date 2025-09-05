@@ -106,6 +106,7 @@ void callbackDispatcher() {
           source: 'background',
           capturedAt: DateTime.now(),
         );
+        debugPrint('백그라운드: 네트워크 실패로 큐 적재(user=$uidOverride)');
       }
 
       debugPrint('백그라운드 출석 체크 완료');
@@ -120,6 +121,9 @@ void callbackDispatcher() {
           int.tryParse(dotenv.env['TEST_BURST_TOTAL_SEC'] ?? '') ??
           0;
       if (burstIntervalSec > 0 && burstTotalSec > 0) {
+        debugPrint(
+          '백그라운드: 버스트 시작 interval=${burstIntervalSec}s total=${burstTotalSec}s',
+        );
         final int loops = (burstTotalSec / burstIntervalSec).floor();
         for (int i = 0; i < loops; i++) {
           await Future.delayed(Duration(seconds: burstIntervalSec));
@@ -144,6 +148,7 @@ void callbackDispatcher() {
                   source: 'background',
                   capturedAt: DateTime.now(),
                 );
+                debugPrint('백그라운드: 버스트 큐 적재(user=$uidOverride)');
               }
               debugPrint('백그라운드 테스트 버스트 저장 ${i + 1}/$loops');
             } else {
@@ -168,6 +173,7 @@ void callbackDispatcher() {
                   source: 'background',
                   capturedAt: DateTime.now(),
                 );
+                debugPrint('백그라운드: 버스트 큐 적재(user=$uidOverride)');
               }
               debugPrint('백그라운드 테스트 버스트(현재 위치) 저장 ${i + 1}/$loops');
             }
@@ -180,7 +186,9 @@ void callbackDispatcher() {
       // 오프라인 큐 플러시(최대 100건, eligible 조건)
       try {
         await queue.pruneExceededRetries();
+        final total = await queue.count();
         final items = await queue.fetchEligibleBatch(100);
+        debugPrint('백그라운드: 큐 상태 total=$total eligible=${items.length}');
         if (items.isNotEmpty) {
           final rows = items
               .map(
