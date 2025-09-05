@@ -42,6 +42,26 @@
   - `radius_meters` (INTEGER, DEFAULT 80): 출석 반경 (미터 단위)
   - `created_at` (TIMESTAMP, DEFAULT NOW()): 생성 일자
 
+### 5. location_logs (위치 로그 테이블)
+- **설명**: 포그라운드/백그라운드에서 수집한 위치 히스토리 저장
+- **컬럼**:
+  - `id` (BIGINT, PRIMARY KEY, identity): 로그 ID
+  - `user_id` (INTEGER, REFERENCES users(id)): 사용자 ID
+  - `service_id` (INTEGER, NULL, REFERENCES services(id)): 해당 예배 ID(있을 때)
+  - `latitude` (DOUBLE PRECISION, NOT NULL)
+  - `longitude` (DOUBLE PRECISION, NOT NULL)
+  - `accuracy` (DOUBLE PRECISION, NULL)
+  - `source` (TEXT, NOT NULL) — 'foreground' | 'background'
+  - `captured_at` (TIMESTAMP, NOT NULL, DEFAULT NOW())
+  - `created_at` (TIMESTAMP, NOT NULL, DEFAULT NOW())
+
+## 인덱스/성능
+- `location_logs`: (`user_id`, `captured_at` DESC) 복합 인덱스 권장
+- `attendance`: (`user_id`, `service_id`) 유니크 제약 고려(중복 방지)
+
+## 보안/RLS(운영 단계)
+- `location_logs`: user_id 기반 RLS 정책으로 자기 데이터만 조회/삽입 허용
+
 ## 관계 설정
 
 ### users ↔ attendance
