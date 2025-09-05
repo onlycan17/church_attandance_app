@@ -220,6 +220,68 @@ class SupabaseService {
     }
   }
 
+  Future<bool> tryInsertLocationLog({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    String source = 'foreground',
+    int? userIdIntOverride,
+  }) async {
+    try {
+      int? userIdInt = userIdIntOverride;
+      if (userIdInt == null) {
+        final user = getCurrentUser();
+        if (user != null) {
+          userIdInt = await _resolveInternalUserId(user.id);
+        } else {
+          final token =
+              _lastAccessToken ?? _supabase.auth.currentSession?.accessToken;
+          final email = token != null ? _decodeEmailFromJwt(token) : null;
+          if (email != null) {
+            userIdInt = await _resolveInternalUserIdByEmail(email);
+          }
+        }
+      }
+
+      if (userIdInt == null) {
+        return false;
+      }
+
+      int? serviceIdInt;
+      final currentService = await getCurrentService();
+      if (currentService != null) {
+        final sid = currentService['id'];
+        serviceIdInt = sid is int ? sid : int.tryParse(sid.toString());
+      }
+
+      final payload = <String, dynamic>{
+        'user_id': userIdInt,
+        'latitude': latitude,
+        'longitude': longitude,
+        if (accuracy != null) 'accuracy': accuracy,
+        'source': source,
+        'captured_at': DateTime.now().toIso8601String(),
+        if (serviceIdInt != null) 'service_id': serviceIdInt,
+      };
+
+      await _supabase.from('location_logs').insert(payload);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> bulkInsertLocationLogs(List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return true;
+    try {
+      await _supabase.from('location_logs').insert(rows);
+      return true;
+    } catch (e) {
+      debugPrint('위치 로그 일괄 저장 오류: $e');
+      return false;
+    }
+  }
+
   String? _decodeEmailFromJwt(String token) {
     try {
       final parts = token.split('.');

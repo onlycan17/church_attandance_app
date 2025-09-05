@@ -45,6 +45,9 @@ dependencies:
   build_runner: ^2.4.11
   url_launcher: ^6.3.0
   timezone: ^0.10.1
+  sqflite: ^2.3.3
+  path_provider: ^2.1.4
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
