@@ -16,7 +16,7 @@ class GPSService {
 
   StreamSubscription<Position>? _positionStream;
   final StreamController<bool> _locationStatusController =
-      StreamController<bool>();
+      StreamController<bool>.broadcast();
 
   late AttendanceService _attendanceService;
 
