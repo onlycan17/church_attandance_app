@@ -1,7 +1,6 @@
 # 교회 예배 출석 체크 - 통합 TODO 리스트
 
 ## 현재 작업
-- [ ] 백그라운드 신뢰성 A안: 내부 `user_id(int)` 캐시/전달로 매핑 REST 제거
 - [ ] 백그라운드 신뢰성 B안: 오프라인 큐(SQLite) 구축 → 네트워크 복구 시 동기화
 - [ ] iOS 백그라운드 위치 업데이트 지원(Background Modes/설명 키/구현)
 - [ ] 배터리 최적화 예외 안내 UI/문서 정리(제조사별 가이드)
@@ -29,6 +28,17 @@
 - [ ] 운영 전환 시 보안: RLS 정책/정책 테스트(프로토타입 단계에서는 제외)
 - [ ] 포그라운드 서비스 전환 옵션 설계(A/B 테스트)
 
+## 세부 작업(TODO Breakdowns)
+
+### B안: 오프라인 큐(SQLite)
+- [ ] 의존성 추가: `sqflite`, `path_provider`
+- [ ] 로컬 큐 스키마 설계: `log_queue(id, user_id, service_id, lat, lng, accuracy, source, captured_at, retries, created_at)`
+- [ ] `LocalQueueService` 작성: enqueue/dequeue(batch)/delete(ids)/count
+- [ ] 백그라운드 콜백: 삽입 실패 시 enqueue, 성공 시 큐 비우기 시도
+- [ ] 업로드 재시도: 지수 백오프, 최대 재시도 한도(예: 5회)
+- [ ] 진단 로그: 원인별(네트워크/DNS/권한) 분기 로깅
+- [ ] 테스트: 서비스 단위 테스트(큐 입출력/정렬/삭제)
+
 ## 상세 작업 항목(참고)
 
 ### 1. Flutter 프로젝트 설정
@@ -51,6 +61,10 @@
 - [x] 테스트 모드: 3분 간격 반복(OneOff 재스케줄)
 - [ ] iOS: Background Modes 구성 및 대안(지오펜싱/로컬 알림)
 
+- [x] 백그라운드 신뢰성 A안: 내부 `user_id(int)` 캐시/전달로 매핑 REST 제거
+  - WorkManager `inputData`에 `user_id_int` 포함 → 콜백에서 override로 사용
+  - `location_logs` 삽입 시 이메일 매핑 REST 제거 경로 확보(네트워크 실패 민감도 완화)
+  - 훅 통과: format/analyze/test ✅
 ### 5. 인증/세션
 - [x] 로그인/세션 캐시
 - [ ] WorkManager 콜백에서 세션 복구(A안: 토큰 전달)
