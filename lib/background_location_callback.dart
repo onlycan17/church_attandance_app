@@ -85,7 +85,11 @@ void callbackDispatcher() {
       // 출석 체크
       await attendanceService.checkAttendance(position);
       // 위치 로그(백그라운드)
-      await attendanceService.logBackgroundLocation(position);
+      final uidOverride = inputData?['user_id_int'] as int?;
+      await attendanceService.logBackgroundLocation(
+        position,
+        userIdIntOverride: uidOverride,
+      );
 
       debugPrint('백그라운드 출석 체크 완료');
 
@@ -106,14 +110,20 @@ void callbackDispatcher() {
             // 빠른 저장을 위해 우선 lastKnownPosition 사용
             final last = await Geolocator.getLastKnownPosition();
             if (last != null) {
-              await attendanceService.logBackgroundLocation(last);
+              await attendanceService.logBackgroundLocation(
+                last,
+                userIdIntOverride: uidOverride,
+              );
               debugPrint('백그라운드 테스트 버스트 저장 ${i + 1}/$loops');
             } else {
               // fallback: 현재 위치 재시도(짧은 시도)
               final quick = await gpsService.getCurrentLocation(
                 forBackground: true,
               );
-              await attendanceService.logBackgroundLocation(quick);
+              await attendanceService.logBackgroundLocation(
+                quick,
+                userIdIntOverride: uidOverride,
+              );
               debugPrint('백그라운드 테스트 버스트(현재 위치) 저장 ${i + 1}/$loops');
             }
           } catch (e) {
@@ -141,6 +151,7 @@ void callbackDispatcher() {
               'reschedule_interval_sec': nextSec,
               'test_burst_interval_sec': burstIntervalSec,
               'test_burst_total_sec': burstTotalSec,
+              if (uidOverride != null) 'user_id_int': uidOverride,
               if ((inputData?['access_token'] as String?) != null)
                 'access_token': inputData?['access_token'],
               if ((inputData?['refresh_token'] as String?) != null)

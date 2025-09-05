@@ -119,13 +119,21 @@ class AttendanceService {
     }
   }
 
-  Future<void> logBackgroundLocation(Position position) async {
+  Future<void> logBackgroundLocation(
+    Position position, {
+    int? userIdIntOverride,
+  }) async {
     await _supabaseService.insertLocationLog(
       latitude: position.latitude,
       longitude: position.longitude,
       accuracy: position.accuracy,
       source: 'background',
+      userIdIntOverride: userIdIntOverride,
     );
+  }
+
+  Future<int?> getInternalUserId() async {
+    return _supabaseService.getInternalUserId();
   }
 
   bool _isWithinServiceWindow(DateTime now, Map<String, dynamic> service) {

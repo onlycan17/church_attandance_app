@@ -52,6 +52,13 @@ class SupabaseService {
     _lastAccessToken = token;
   }
 
+  /// 현재 로그인 사용자의 내부 user_id(int) 조회(캐시 사용)
+  Future<int?> getInternalUserId() async {
+    final user = getCurrentUser();
+    if (user == null) return null;
+    return _resolveInternalUserId(user.id);
+  }
+
   Future<AuthResponse> signIn(String username, String password) async {
     try {
       final response = await _supabase.auth.signInWithPassword(
@@ -161,23 +168,26 @@ class SupabaseService {
     required double longitude,
     double? accuracy,
     String source = 'foreground',
+    int? userIdIntOverride,
   }) async {
     try {
-      final user = getCurrentUser();
-      int? userIdInt;
-      if (user != null) {
-        userIdInt = await _resolveInternalUserId(user.id);
-      } else {
-        // currentUser가 없으면 access token 기반으로 이메일 추출 후 사용자 ID 매핑 시도
-        final token =
-            _lastAccessToken ?? _supabase.auth.currentSession?.accessToken;
-        final email = token != null ? _decodeEmailFromJwt(token) : null;
-        if (email != null) {
-          userIdInt = await _resolveInternalUserIdByEmail(email);
-        }
-        if (userIdInt == null) {
-          debugPrint('위치 로그 건너뜀: 로그인 사용자 없음');
-          return;
+      int? userIdInt = userIdIntOverride;
+      if (userIdInt == null) {
+        final user = getCurrentUser();
+        if (user != null) {
+          userIdInt = await _resolveInternalUserId(user.id);
+        } else {
+          // currentUser가 없으면 access token 기반으로 이메일 추출 후 사용자 ID 매핑 시도
+          final token =
+              _lastAccessToken ?? _supabase.auth.currentSession?.accessToken;
+          final email = token != null ? _decodeEmailFromJwt(token) : null;
+          if (email != null) {
+            userIdInt = await _resolveInternalUserIdByEmail(email);
+          }
+          if (userIdInt == null) {
+            debugPrint('위치 로그 건너뜀: 로그인 사용자 없음');
+            return;
+          }
         }
       }
 

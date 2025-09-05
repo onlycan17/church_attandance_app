@@ -35,6 +35,11 @@ class GPSService {
   }) async {
     try {
       final Duration target = interval ?? const Duration(minutes: 15);
+      // 내부 user_id(int) 조회(가능 시) → WorkManager inputData로 전달
+      int? userIdInt;
+      try {
+        userIdInt = await _attendanceService.getInternalUserId();
+      } catch (_) {}
       if (target < const Duration(minutes: 15)) {
         await Workmanager().registerOneOffTask(
           'location_monitoring_debug',
@@ -54,6 +59,7 @@ class GPSService {
             // 테스트 버스트(짧은 간격 연속 로그) 파라미터: 15초 간격으로 60초간 추가 저장
             'test_burst_interval_sec': 15,
             'test_burst_total_sec': 60,
+            if (userIdInt != null) 'user_id_int': userIdInt,
             if (accessToken != null) 'access_token': accessToken,
             if (refreshToken != null) 'refresh_token': refreshToken,
           },
@@ -76,6 +82,7 @@ class GPSService {
           inputData: <String, dynamic>{
             'scheduled_at': DateTime.now().toIso8601String(),
             'note': 'background_location_check',
+            if (userIdInt != null) 'user_id_int': userIdInt,
             if (accessToken != null) 'access_token': accessToken,
             if (refreshToken != null) 'refresh_token': refreshToken,
           },
