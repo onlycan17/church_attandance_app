@@ -177,9 +177,10 @@ void callbackDispatcher() {
         }
       }
 
-      // 오프라인 큐 플러시(최대 100건)
+      // 오프라인 큐 플러시(최대 100건, eligible 조건)
       try {
-        final items = await queue.fetchBatch(100);
+        await queue.pruneExceededRetries();
+        final items = await queue.fetchEligibleBatch(100);
         if (items.isNotEmpty) {
           final rows = items
               .map(
