@@ -103,6 +103,8 @@ class AuthWrapper extends StatelessWidget {
       stream: supabaseService.client.auth.onAuthStateChange.map(
         (event) => event.session?.user,
       ),
+      // 초기 구독 시 이미 존재하는 세션을 즉시 반영
+      initialData: supabaseService.client.auth.currentUser,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
