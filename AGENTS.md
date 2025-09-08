@@ -42,3 +42,7 @@
 - `.env`는 개발 전용. 배포는 환경변수/비밀관리 사용
 - Supabase Key 등 비밀정보는 코드/로그/이슈에 노출 금지
 - 로그는 `debugPrint` 사용, 민감정보 마스킹. CI(설명: 자동 테스트·검사 파이프라인)에서 경고를 오류로 처리해 품질을 보장합니다.
+
+SUPABASE_URL=https://qqgvkfsgloyggqpnemol.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ3ZrZnNnbG95Z2dxcG5lbW9sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxODk5MDAsImV4cCI6MjA3MTc2NTkwMH0.I7mM9EIdcLDoR1462yuDYwEFgI2RQZno9BnClnwTXXk
+SUPABASE_ACCESS_TOKEN=sbp_3a3b724bad79596065e47202099ae9b189abca03

@@ -30,28 +30,16 @@ void callbackDispatcher() {
       await supabaseService.init();
       final queue = LocalQueueService();
       await queue.init();
-      // 세션 복구 시도(테스트/프로토타입 목적): inputData에 전달된 토큰 사용
+      // 세션 복구 시도(주의): refresh token 재사용은 세션 폐기 리스크가 있어 사용하지 않음
       try {
         final at = (inputData?['access_token'] as String?)?.trim();
-        final rt = (inputData?['refresh_token'] as String?)?.trim();
 
-        // 우선 접근 토큰으로 인증 헤더 설정(네트워크 없이도 설정 가능)
+        // access token은 이메일 디코딩 등 보조 용도로만 보관(세션 교체 없음)
         if (at != null && at.isNotEmpty) {
-          // SupabaseService에 보조 저장(사용자 정보가 null일 때 JWT 디코드용)
           try {
             SupabaseService().registerExternalAccessToken(at);
           } catch (_) {}
-          debugPrint('백그라운드: access token 수신 및 보조 저장');
-        }
-
-        // 가능하면 refresh token으로 세션 복구(네트워크 필요, 실패해도 치명적 아님)
-        if (rt != null && rt.isNotEmpty) {
-          try {
-            await Supabase.instance.client.auth.setSession(rt);
-            debugPrint('백그라운드: 세션 복구 시도 완료');
-          } catch (e) {
-            debugPrint('백그라운드: 세션 복구 실패: $e');
-          }
+          debugPrint('백그라운드: access token 수신(세션 교체 없음)');
         }
       } catch (e) {
         debugPrint('백그라운드: 토큰 파싱 실패: $e');
@@ -237,10 +225,7 @@ void callbackDispatcher() {
               'test_burst_interval_sec': burstIntervalSec,
               'test_burst_total_sec': burstTotalSec,
               if (uidOverride != null) 'user_id_int': uidOverride,
-              if ((inputData?['access_token'] as String?) != null)
-                'access_token': inputData?['access_token'],
-              if ((inputData?['refresh_token'] as String?) != null)
-                'refresh_token': inputData?['refresh_token'],
+              // 토큰은 재스케줄에 전달하지 않음(재사용 위험 제거)
             },
           );
           debugPrint('백그라운드 OneOff 재스케줄 (${nextSec}s 후)');
@@ -278,10 +263,7 @@ void callbackDispatcher() {
               'test_burst_interval_sec': burstIntervalSec,
               'test_burst_total_sec': burstTotalSec,
               if (uidOverride != null) 'user_id_int': uidOverride,
-              if ((inputData?['access_token'] as String?) != null)
-                'access_token': inputData?['access_token'],
-              if ((inputData?['refresh_token'] as String?) != null)
-                'refresh_token': inputData?['refresh_token'],
+              // 토큰은 재스케줄에 전달하지 않음(재사용 위험 제거)
             },
           );
           debugPrint('백그라운드 OneOff 재스케줄(실패 경로) ${nextSec}s 후');
