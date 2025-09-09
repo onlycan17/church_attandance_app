@@ -81,7 +81,7 @@ class MyApp extends StatelessWidget {
         ),
         initialRoute: '/',
         routes: {
-          '/': (context) => const AuthWrapper(),
+          '/': (context) => AuthWrapper(supabaseService: supabaseService),
           '/login': (context) => const LoginScreen(),
           '/home': (context) => const HomeScreen(),
         },
@@ -90,21 +90,65 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
+class AuthWrapper extends StatefulWidget {
+  final SupabaseService supabaseService;
+
+  const AuthWrapper({super.key, required this.supabaseService});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isCheckingAutoLogin = true;
+  bool _autoLoginSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAutoLogin();
+  }
+
+  Future<void> _checkAutoLogin() async {
+    try {
+      // 자동 로그인 가능 여부 확인
+      final canAutoLogin = await widget.supabaseService.canAutoLogin();
+
+      if (canAutoLogin && mounted) {
+        setState(() {
+          _autoLoginSuccess = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('자동 로그인 확인 오류: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingAutoLogin = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final supabaseService = Provider.of<SupabaseService>(
-      context,
-      listen: false,
-    );
+    // 자동 로그인 확인 중이면 로딩 화면 표시
+    if (_isCheckingAutoLogin) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // 자동 로그인 성공 시 홈 화면으로 직접 이동
+    if (_autoLoginSuccess) {
+      return const HomeScreen();
+    }
+
+    // 일반적인 인증 상태 스트림 빌더
     return StreamBuilder<User?>(
-      stream: supabaseService.client.auth.onAuthStateChange.map(
+      stream: widget.supabaseService.client.auth.onAuthStateChange.map(
         (event) => event.session?.user,
       ),
       // 초기 구독 시 이미 존재하는 세션을 즉시 반영
-      initialData: supabaseService.client.auth.currentUser,
+      initialData: widget.supabaseService.client.auth.currentUser,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(

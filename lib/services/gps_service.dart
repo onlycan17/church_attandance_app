@@ -28,10 +28,11 @@ class GPSService {
 
   /// 백그라운드 위치 모니터링 시작
   /// 기본 15분 간격, 테스트 시 더 짧은 주기는 OneOff 자체 재스케줄 방식 적용
+  /// 로컬 저장소의 세션 정보를 활용하여 인증 유지
   Future<void> startBackgroundLocationMonitoring({
     Duration? interval,
-    String? accessToken,
-    String? refreshToken,
+    String? accessToken, // 이전 버전과의 호환성을 위해 유지 (사용하지 않음)
+    String? refreshToken, // 이전 버전과의 호환성을 위해 유지 (사용하지 않음)
   }) async {
     try {
       final Duration target = interval ?? const Duration(minutes: 15);
@@ -60,8 +61,7 @@ class GPSService {
             'test_burst_interval_sec': 15,
             'test_burst_total_sec': 60,
             if (userIdInt != null) 'user_id_int': userIdInt,
-            if (accessToken != null) 'access_token': accessToken,
-            if (refreshToken != null) 'refresh_token': refreshToken,
+            // 토큰은 더 이상 전달하지 않음 - 백그라운드에서 로컬 저장소에서 복원
           },
         );
         debugPrint(
@@ -83,8 +83,7 @@ class GPSService {
             'scheduled_at': DateTime.now().toIso8601String(),
             'note': 'background_location_check',
             if (userIdInt != null) 'user_id_int': userIdInt,
-            if (accessToken != null) 'access_token': accessToken,
-            if (refreshToken != null) 'refresh_token': refreshToken,
+            // 토큰은 더 이상 전달하지 않음 - 백그라운드에서 로컬 저장소에서 복원
           },
         );
         debugPrint('백그라운드 위치 모니터링 시작 (15분 간격)');

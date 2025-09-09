@@ -181,11 +181,21 @@ class HomeViewModel extends ChangeNotifier {
         // 디버그 환경에서는 3분 간격 테스트를 위해 짧은 주기를 사용
         // 운영 환경에서는 15분 고정(WorkManager 최소 주기)
         const testingInterval = Duration(minutes: 3);
-        final tokens = _supabaseService.getCurrentTokens();
+
+        // 로컬 세션이 있는지 확인 (백그라운드에서 세션 복원을 위해)
+        final hasSavedSession = await _supabaseService.hasSavedSession();
+        if (!hasSavedSession) {
+          _statusMessage = '로그인 세션이 없습니다. 다시 로그인해주세요.';
+          notifyListeners();
+          return;
+        }
+
+        // 백그라운드 모니터링 시작 - 토큰은 더 이상 전달하지 않음
+        // 백그라운드에서 로컬 저장소의 세션 정보를 활용
         await _gpsService.startBackgroundLocationMonitoring(
           interval: testingInterval,
-          accessToken: tokens['accessToken'],
-          refreshToken: tokens['refreshToken'],
+          // accessToken과 refreshToken은 더 이상 전달하지 않음
+          // 백그라운드에서 로컬 저장소에서 복원
         );
         _isBackgroundMonitoringEnabled = true;
         _statusMessage = '백그라운드 모니터링 시작됨 - 3분마다 위치 확인(테스트 모드)';
